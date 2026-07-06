@@ -12,24 +12,28 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+      <Card className="w-full max-w-md shadow-2xl rounded-2xl">
+
+        <CardHeader className="text-center space-y-2">
+          <CardTitle className="text-3xl font-bold">
             🎬 VFX Pulse
           </CardTitle>
 
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-slate-500">
             Production Management System
           </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
 
-          <div>
-            <Label>Email</Label>
+          <div className="space-y-2">
+            <Label htmlFor="email">
+              Email
+            </Label>
 
             <Input
+              id="email"
               type="email"
               placeholder="mahesh@example.com"
               value={email}
@@ -37,12 +41,15 @@ export default function LoginForm() {
             />
           </div>
 
-          <div>
-            <Label>Password</Label>
+          <div className="space-y-2">
+            <Label htmlFor="password">
+              Password
+            </Label>
 
             <Input
+              id="password"
               type="password"
-              placeholder="********"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -51,6 +58,10 @@ export default function LoginForm() {
           <Button className="w-full">
             Login
           </Button>
+
+          <p className="text-center text-xs text-slate-400">
+            Version 0.2
+          </p>
 
         </CardContent>
       </Card>
