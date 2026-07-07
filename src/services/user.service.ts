@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 
-import type { UserPermission, UserRole } from "@prisma/client";
+import type { Prisma, UserPermission, UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { CreateUserSchema } from "@/features/users/schemas/create-user.schema";
@@ -42,59 +42,93 @@ function mapUserToListItem(user: {
 
 export const userService = {
   async listUsers(query: UsersQuerySchema): Promise<UserListItem[]> {
-    const users = await prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        ...(query.includeInactive ? {} : { isActive: true }),
-        ...(query.search
-          ? {
-              OR: [
-                { name: { contains: query.search, mode: "insensitive" } },
-                { email: { contains: query.search, mode: "insensitive" } },
-              ],
-            }
-          : {}),
-        ...(query.role ? { role: query.role } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        lastLogin: true,
-        createdAt: true,
-        teamMemberships: {
-          where: { deletedAt: null, team: { deletedAt: null } },
-          select: {
-            isPrimary: true,
-            team: {
-              select: {
-                id: true,
-                name: true,
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(query.includeInactive ? {} : { isActive: true }),
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: "insensitive" as const } },
+              { email: { contains: query.search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+      ...(query.role ? { role: query.role } : {}),
+    };
+
+    try {
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          lastLogin: true,
+          createdAt: true,
+          teamMemberships: {
+            where: { deletedAt: null, team: { deletedAt: null } },
+            select: {
+              isPrimary: true,
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: [{ role: "asc" }, { name: "asc" }],
-    });
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      });
 
-    return users.map(mapUserToListItem);
+      return users.map(mapUserToListItem);
+    } catch {
+      // Fallback keeps /users page available even when relation tables are out of sync.
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          lastLogin: true,
+          createdAt: true,
+        },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
+      });
+
+      return users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        lastLogin: user.lastLogin ? user.lastLogin.toISOString() : null,
+        createdAt: user.createdAt.toISOString(),
+        teams: [],
+      }));
+    }
   },
 
   async listTeams(): Promise<TeamListItem[]> {
-    return prisma.team.findMany({
-      where: {
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-      },
-      orderBy: { name: "asc" },
-    });
+    try {
+      return await prisma.team.findMany({
+        where: {
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+        orderBy: { name: "asc" },
+      });
+    } catch {
+      return [];
+    }
   },
 
   async createUser(input: CreateUserSchema): Promise<UserListItem> {
