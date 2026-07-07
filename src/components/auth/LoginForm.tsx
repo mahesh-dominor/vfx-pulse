@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { login, type LoginState } from "@/features/auth/actions/login";
+import { pendingLabel } from "@/components/ui/async-action-label";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 
 const initialState: LoginState = {
@@ -45,7 +47,7 @@ export default function LoginForm() {
           />
 
           {state.error ? (
-            <p className="text-sm text-red-400">{state.error}</p>
+            <FeedbackMessage variant="error" message={state.error} className="rounded-lg" />
           ) : null}
 
           <Button
@@ -53,7 +55,7 @@ export default function LoginForm() {
             disabled={pending}
             className="bg-blue-600 py-3 hover:bg-blue-500"
           >
-            {pending ? "Signing in..." : "Sign In"}
+            {pendingLabel({ pending, pendingLabel: "Signing in...", idleLabel: "Sign In" })}
           </Button>
         </form>
 

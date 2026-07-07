@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { subscribeDataSync } from "@/lib/live-sync";
 import type { DashboardData } from "@/types/dashboard";
 
@@ -53,7 +54,7 @@ export default function LiveDashboard({ initialData }: LiveDashboardProps) {
 
   return (
     <>
-      {error ? <p className="mb-3 text-sm text-red-400">{error}</p> : null}
+      {error ? <FeedbackMessage variant="error" message={error} className="mb-3" /> : null}
       <DashboardGrid data={data} />
     </>
   );

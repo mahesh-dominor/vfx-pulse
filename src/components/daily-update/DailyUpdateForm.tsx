@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { pendingLabel } from "@/components/ui/async-action-label";
 
 interface Project {
   id: string;
@@ -251,7 +252,11 @@ export default function DailyUpdateForm() {
             disabled={submitting || loading}
             className="px-8 py-3 rounded-xl bg-cyan-500 text-black font-semibold hover:bg-cyan-400 disabled:opacity-50 transition"
           >
-            {submitting ? "Submitting..." : "Submit Update"}
+            {pendingLabel({
+              pending: submitting,
+              pendingLabel: "Submitting...",
+              idleLabel: "Submit Update",
+            })}
           </button>
         </div>
       </form>

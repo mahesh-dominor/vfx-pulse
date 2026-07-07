@@ -8,6 +8,7 @@ import {
   type ForgotPasswordState,
 } from "@/features/auth/actions/forgot-password";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 
 const initialState: ForgotPasswordState = {
@@ -43,17 +44,23 @@ export default function ForgotPasswordForm() {
           />
 
           {state.error ? (
-            <p className="text-sm text-red-400">{state.error}</p>
+            <FeedbackMessage variant="error" message={state.error} className="rounded-lg" />
           ) : null}
 
           {state.success ? (
-            <p className="text-sm text-emerald-400">{state.message}</p>
+            <FeedbackMessage variant="success" message={state.message} className="rounded-lg" />
           ) : null}
 
           {state.resetUrl ? (
-            <div className="rounded-lg border border-amber-600/30 bg-amber-500/10 p-3 text-sm text-amber-200">
-              Development reset link: <a href={state.resetUrl}>{state.resetUrl}</a>
-            </div>
+            <FeedbackMessage
+              variant="warning"
+              className="rounded-lg"
+              message={
+                <>
+                  Development reset link: <a href={state.resetUrl}>{state.resetUrl}</a>
+                </>
+              }
+            />
           ) : null}
 
           <Button

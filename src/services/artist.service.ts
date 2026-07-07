@@ -40,6 +40,13 @@ export const artistService = {
     });
   },
 
+  async updateArtistActiveStatus(id: string, isActive: boolean) {
+    return prisma.artist.update({
+      where: { id },
+      data: { isActive },
+    });
+  },
+
   async softDeleteArtist(id: string) {
     return prisma.artist.update({
       where: { id },

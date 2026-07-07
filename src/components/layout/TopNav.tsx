@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { logout } from "@/features/auth/actions/logout";
 import { subscribeDataSync } from "@/lib/live-sync";
+import BackButton from "@/components/layout/BackButton";
 
 type NavItem = {
   href: string;
@@ -31,6 +33,8 @@ function isActive(pathname: string, href: string) {
 export default function TopNav() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [now, setNow] = useState(new Date());
   const [badges, setBadges] = useState({
     openShots: 0,
     openTasks: 0,
@@ -81,6 +85,16 @@ export default function TopNav() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
   function getBadge(href: string): number | null {
     if (href === "/shots") {
       return badges.openShots;
@@ -116,14 +130,20 @@ export default function TopNav() {
   return (
     <nav className="sticky top-0 z-40 mb-6 rounded-2xl border border-slate-800/90 bg-[#0B1321]/95 p-3 backdrop-blur">
       <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"
-        >
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-xs font-bold text-white">
-            MR
-          </span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <BackButton />
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-xs font-bold text-white">
+              MR
+            </span>
+            <span className="hidden text-xs text-slate-200 sm:inline">
+              {now.toLocaleDateString()} {now.toLocaleTimeString()}
+            </span>
+          </Link>
+        </div>
 
         <button
           type="button"
@@ -162,6 +182,30 @@ export default function TopNav() {
             );
           })}
         </ul>
+
+        <div className="relative hidden md:block">
+          <button
+            type="button"
+            onClick={() => setIsProfileOpen((prev) => !prev)}
+            className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200"
+            aria-expanded={isProfileOpen}
+          >
+            Profile
+          </button>
+
+          {isProfileOpen ? (
+            <div className="absolute right-0 mt-2 w-44 rounded-lg border border-slate-700 bg-[#0B1321] p-2 shadow-xl">
+              <form action={logout}>
+                <button
+                  type="submit"
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-red-300 transition hover:bg-red-900/30"
+                >
+                  Sign Out
+                </button>
+              </form>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {isOpen ? (
@@ -192,6 +236,16 @@ export default function TopNav() {
               </li>
             );
           })}
+          <li>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 transition hover:bg-red-900/30"
+              >
+                <span>Sign Out</span>
+              </button>
+            </form>
+          </li>
         </ul>
       ) : null}
     </nav>

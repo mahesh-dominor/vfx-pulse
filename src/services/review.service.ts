@@ -1,22 +1,73 @@
 import type { ReviewSchema } from "@/features/reviews/schemas/review.schema";
 import { prisma } from "@/lib/prisma";
 
+type ReviewFilters = {
+  shotId?: string;
+  projectId?: string;
+  artistId?: string;
+  status?: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "APPROVED" | "REJECTED";
+  fromDate?: Date;
+  toDate?: Date;
+  search?: string;
+};
+
 export const reviewService = {
-  async listReviews(shotId?: string) {
+  async listReviews(filters?: ReviewFilters) {
+    const shotFilter = {
+      ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+      ...(filters?.artistId ? { artistId: filters.artistId } : {}),
+    };
+
     return prisma.review.findMany({
       where: {
         deletedAt: null,
-        ...(shotId ? { shotId } : {}),
+        ...(filters?.shotId ? { shotId: filters.shotId } : {}),
+        ...(Object.keys(shotFilter).length > 0 ? { shot: shotFilter } : {}),
+        ...(filters?.status ? { status: filters.status } : {}),
+        ...(filters?.fromDate || filters?.toDate
+          ? {
+              createdAt: {
+                ...(filters.fromDate ? { gte: filters.fromDate } : {}),
+                ...(filters.toDate ? { lte: filters.toDate } : {}),
+              },
+            }
+          : {}),
+        ...(filters?.search
+          ? {
+              OR: [
+                { title: { contains: filters.search, mode: "insensitive" } },
+                { description: { contains: filters.search, mode: "insensitive" } },
+                { shot: { code: { contains: filters.search, mode: "insensitive" } } },
+                { shot: { shotName: { contains: filters.search, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
       },
       include: {
         shot: {
-          select: { id: true, code: true, shotName: true },
+          select: {
+            id: true,
+            code: true,
+            shotName: true,
+            version: true,
+            project: {
+              select: { id: true, code: true, name: true },
+            },
+            artist: {
+              select: { id: true, name: true },
+            },
+          },
         },
         createdBy: {
           select: { id: true, name: true, email: true },
         },
         notes: {
           where: { deletedAt: null },
+          include: {
+            user: {
+              select: { id: true, name: true },
+            },
+          },
           orderBy: { createdAt: "desc" },
           take: 5,
         },
@@ -48,6 +99,16 @@ export const reviewService = {
         title: input.title,
         description: input.description,
       },
+    });
+  },
+
+  async updateReviewStatus(
+    id: string,
+    status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "APPROVED" | "REJECTED"
+  ) {
+    return prisma.review.update({
+      where: { id },
+      data: { status },
     });
   },
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { emitDataSync, subscribeDataSync } from "@/lib/live-sync";
+import { pendingCrudLabel } from "@/components/ui/async-action-label";
+import { DataPanel, EmptyState, LoadingState, TableWrapper } from "@/components/ui/data-states";
 
 type ArtistDesignation =
   | "JUNIOR_ARTIST"
@@ -84,6 +86,10 @@ export default function ArtistsManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkActive, setBulkActive] = useState(true);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,12 +124,16 @@ export default function ArtistsManagement() {
 
       const data = (await response.json()) as ArtistItem[];
       setArtists(data);
+      setSelectedIds((prev) => prev.filter((id) => data.some((artist) => artist.id === id)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load artists");
     } finally {
       setLoading(false);
     }
   }
+
+  const selectedCount = selectedIds.length;
+  const allSelected = artists.length > 0 && selectedCount === artists.length;
 
   function openCreateModal() {
     setEditingId(null);
@@ -186,6 +196,7 @@ export default function ArtistsManagement() {
 
       await loadArtists();
       emitDataSync("artists");
+      setSuccess(editingId ? "Artist updated" : "Artist created");
       closeFormModal();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save artist");
@@ -214,8 +225,106 @@ export default function ArtistsManagement() {
       setDeletingId(null);
       await loadArtists();
       emitDataSync("artists");
+      setSuccess("Artist removed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove artist");
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? [] : artists.map((artist) => artist.id));
+  }
+
+  function exportSelected() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    const selected = artists.filter((artist) => selectedIds.includes(artist.id));
+    const rows = [
+      "employeeId,fullName,email,department,designation,status",
+      ...selected.map(
+        (artist) =>
+          `${artist.employeeId},${artist.fullName},${artist.email},${artist.department},${artist.designation},${artist.isActive ? "Active" : "Inactive"}`
+      ),
+    ];
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "artists-selected.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function deleteSelected() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete ${selectedCount} selected artists?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/artists/${id}`, {
+            method: "DELETE",
+          })
+        )
+      );
+
+      setSelectedIds([]);
+      await loadArtists();
+      emitDataSync("artists");
+      setSuccess("Selected artists removed");
+    } catch {
+      setError("Failed to remove selected artists");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function updateSelectedStatus() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/artists/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isActive: bulkActive }),
+          })
+        )
+      );
+
+      await loadArtists();
+      emitDataSync("artists");
+      setSuccess("Selected artist statuses updated");
+    } catch {
+      setError("Failed to update selected artist statuses");
+    } finally {
+      setBulkLoading(false);
     }
   }
 
@@ -232,14 +341,60 @@ export default function ArtistsManagement() {
       </div>
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {success ? <p className="text-sm text-emerald-400">{success}</p> : null}
 
-      <div className="rounded-2xl border border-slate-800 bg-[#111827] p-5">
+      <DataPanel>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void deleteSelected()}
+            disabled={bulkLoading || selectedCount === 0}
+            className="rounded-lg border border-red-700 px-3 py-2 text-xs text-red-300 hover:bg-red-900/30 disabled:opacity-50"
+          >
+            Delete Selected
+          </button>
+          <button
+            type="button"
+            onClick={exportSelected}
+            disabled={selectedCount === 0}
+            className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:border-slate-500 disabled:opacity-50"
+          >
+            Export Selected
+          </button>
+          <select
+            value={bulkActive ? "ACTIVE" : "INACTIVE"}
+            onChange={(e) => setBulkActive(e.target.value === "ACTIVE")}
+            className="rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-xs text-slate-100"
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => void updateSelectedStatus()}
+            disabled={bulkLoading || selectedCount === 0}
+            className="rounded-lg border border-blue-700 px-3 py-2 text-xs text-blue-300 hover:bg-blue-900/30 disabled:opacity-50"
+          >
+            Update Status
+          </button>
+          <span className="text-xs text-slate-400">Selected: {selectedCount}</span>
+        </div>
+
         {loading ? (
-          <p className="text-slate-300">Loading artists...</p>
+          <LoadingState text="Loading artists..." />
         ) : (
-          <table className="min-w-full text-left">
+          <TableWrapper>
+            <table className="min-w-full text-left">
             <thead className="text-xs uppercase tracking-wide text-slate-400">
               <tr>
+                <th className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all artists"
+                  />
+                </th>
                 <th className="px-3 py-2">Employee ID</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Email</th>
@@ -252,6 +407,14 @@ export default function ArtistsManagement() {
             <tbody>
               {artists.map((artist) => (
                 <tr key={artist.id} className="border-t border-slate-800 text-slate-200">
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(artist.id)}
+                      onChange={() => toggleSelect(artist.id)}
+                      aria-label={`Select ${artist.fullName}`}
+                    />
+                  </td>
                   <td className="px-3 py-2">{artist.employeeId}</td>
                   <td className="px-3 py-2">{artist.fullName}</td>
                   <td className="px-3 py-2">{artist.email}</td>
@@ -278,10 +441,18 @@ export default function ArtistsManagement() {
                   </td>
                 </tr>
               ))}
+              {artists.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-3">
+                    <EmptyState text="No artists found." />
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          </TableWrapper>
         )}
-      </div>
+      </DataPanel>
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -366,7 +537,7 @@ export default function ArtistsManagement() {
                   disabled={saving}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : editingArtist ? "Update Artist" : "Create Artist"}
+                  {pendingCrudLabel(saving, editingArtist ? "update" : "create", "Artist")}
                 </button>
                 <button
                   type="button"

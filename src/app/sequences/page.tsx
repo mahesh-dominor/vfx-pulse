@@ -1,4 +1,5 @@
 import { sequenceService } from "@/services/sequence.service";
+import TopNav from "@/components/layout/TopNav";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,6 +15,7 @@ export default async function SequencesPage() {
 
   return (
     <main className="min-h-screen bg-[#070B14] p-8">
+      <TopNav />
       <h1 className="mb-6 text-3xl font-semibold text-slate-100">Sequences</h1>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sequences.map((sequence) => (

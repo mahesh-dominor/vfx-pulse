@@ -57,6 +57,16 @@ export const projectService = {
 		});
 	},
 
+	async updateProjectStatus(
+		id: string,
+		status: "ACTIVE" | "ON_HOLD" | "COMPLETED" | "ARCHIVED"
+	) {
+		return prisma.project.update({
+			where: { id },
+			data: { status },
+		});
+	},
+
 	async softDeleteProject(id: string) {
 		return prisma.project.update({
 			where: { id },

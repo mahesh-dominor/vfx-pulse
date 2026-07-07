@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { subscribeDataSync } from "@/lib/live-sync";
 import * as XLSX from "xlsx";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 type ProjectOption = { id: string; code: string; name: string; status: string };
 
@@ -250,8 +251,8 @@ export default function ReportsDashboard() {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
-      {loading ? <p className="text-slate-300">Loading reports...</p> : null}
+      {error ? <FeedbackMessage variant="error" message={error} /> : null}
+      {loading ? <FeedbackMessage variant="info" message="Loading reports..." /> : null}
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className="rounded-2xl border border-slate-800 bg-[#111827] p-5">

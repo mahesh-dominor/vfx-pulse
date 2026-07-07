@@ -6,7 +6,9 @@ import { USER_ROLES } from "@/constants/users";
 import { createUserAction, type CreateUserState } from "@/features/users/actions/create-user";
 import { deleteUserAction } from "@/features/users/actions/delete-user";
 import { updateUserAction, type UpdateUserState } from "@/features/users/actions/update-user";
+import { pendingLabel } from "@/components/ui/async-action-label";
 import { Button } from "@/components/ui/button";
+import { DataPanel, EmptyState, TableWrapper } from "@/components/ui/data-states";
 import type { TeamListItem, UserListItem } from "@/types/users";
 
 type UsersManagementProps = {
@@ -83,7 +85,7 @@ function UserRow({
             <input name="permissionOverrides" type="hidden" value="[]" />
             {updateState.error ? <p className="text-xs text-red-400">{updateState.error}</p> : null}
             <Button type="submit" disabled={updatePending} className="w-auto px-3 py-1 text-xs">
-              {updatePending ? "Saving..." : "Update"}
+              {pendingLabel({ pending: updatePending, pendingLabel: "Saving...", idleLabel: "Update" })}
             </Button>
           </form>
         ) : (
@@ -94,7 +96,7 @@ function UserRow({
           <form action={deleteFormAction} className="mt-2">
             {deleteState.error ? <p className="mb-1 text-xs text-red-400">{deleteState.error}</p> : null}
             <Button type="submit" disabled={deletePending} className="w-auto bg-red-600 px-3 py-1 text-xs hover:bg-red-500">
-              {deletePending ? "Removing..." : "Soft Delete"}
+              {pendingLabel({ pending: deletePending, pendingLabel: "Removing...", idleLabel: "Soft Delete" })}
             </Button>
           </form>
         ) : null}
@@ -140,15 +142,16 @@ export default function UsersManagement({ users, teams, canEdit, canDelete }: Us
             <div className="md:col-span-2">
               {createState.error ? <p className="mb-2 text-sm text-red-400">{createState.error}</p> : null}
               <Button type="submit" disabled={createPending} className="w-auto px-4 py-2">
-                {createPending ? "Creating..." : "Create User"}
+                {pendingLabel({ pending: createPending, pendingLabel: "Creating...", idleLabel: "Create User" })}
               </Button>
             </div>
           </form>
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#111827]">
-        <table className="min-w-full text-left">
+      <DataPanel className="p-0">
+        <TableWrapper>
+          <table className="min-w-full text-left">
           <thead className="bg-[#0B1321] text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -169,9 +172,17 @@ export default function UsersManagement({ users, teams, canEdit, canDelete }: Us
                 canDelete={canDelete}
               />
             ))}
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-4">
+                  <EmptyState text="No users found." />
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
-      </div>
+        </TableWrapper>
+      </DataPanel>
     </section>
   );
 }

@@ -1,7 +1,10 @@
 "use client";
 
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+
+import { pendingCrudLabel, pendingLabel } from "@/components/ui/async-action-label";
 import { emitDataSync, subscribeDataSync } from "@/lib/live-sync";
+import { DataPanel, EmptyState, LoadingState, TableWrapper } from "@/components/ui/data-states";
 
 type ShotStatus =
   | "NOT_STARTED"
@@ -11,6 +14,16 @@ type ShotStatus =
   | "APPROVED"
   | "DELIVERED"
   | "HOLD";
+
+type UiShotStatus =
+  | "NOT_STARTED"
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "INTERNAL_REVIEW"
+  | "CLIENT_REVIEW"
+  | "APPROVED"
+  | "COMPLETED"
+  | "ON_HOLD";
 
 type ProjectItem = { id: string; code: string; name: string };
 type SequenceItem = { id: string; code: string; name: string; projectId: string };
@@ -54,7 +67,18 @@ type ShotForm = {
   frameEnd: string;
 };
 
-const statusOptions: ShotStatus[] = [
+const uiStatusOptions: { value: UiShotStatus; label: string }[] = [
+  { value: "NOT_STARTED", label: "Not Started" },
+  { value: "ASSIGNED", label: "Assigned" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "INTERNAL_REVIEW", label: "Internal Review" },
+  { value: "CLIENT_REVIEW", label: "Client Review" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "ON_HOLD", label: "On Hold" },
+];
+
+const backendStatusOptions: ShotStatus[] = [
   "NOT_STARTED",
   "WIP",
   "INTERNAL_REVIEW",
@@ -105,6 +129,33 @@ function getShotCsvTemplate() {
   ].join("\n");
 }
 
+function mapUiToBackendStatus(value: UiShotStatus): ShotStatus {
+  switch (value) {
+    case "ASSIGNED":
+    case "IN_PROGRESS":
+      return "WIP";
+    case "COMPLETED":
+      return "DELIVERED";
+    case "ON_HOLD":
+      return "HOLD";
+    default:
+      return value;
+  }
+}
+
+function mapBackendToUiStatus(value: ShotStatus): UiShotStatus {
+  switch (value) {
+    case "WIP":
+      return "IN_PROGRESS";
+    case "DELIVERED":
+      return "COMPLETED";
+    case "HOLD":
+      return "ON_HOLD";
+    default:
+      return value;
+  }
+}
+
 export default function ShotsManagement() {
   const [shots, setShots] = useState<ShotItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -113,7 +164,12 @@ export default function ShotsManagement() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<UiShotStatus>("IN_PROGRESS");
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -132,6 +188,9 @@ export default function ShotsManagement() {
     () => sequences.filter((sequence) => !form.projectId || sequence.projectId === form.projectId),
     [sequences, form.projectId]
   );
+
+  const selectedCount = selectedIds.length;
+  const allSelected = shots.length > 0 && selectedCount === shots.length;
 
   useEffect(() => {
     void loadData();
@@ -167,6 +226,7 @@ export default function ShotsManagement() {
       ])) as [ShotItem[], ProjectItem[], SequenceItem[], ArtistItem[]];
 
       setShots(shotsData);
+      setSelectedIds((prev) => prev.filter((id) => shotsData.some((shot) => shot.id === id)));
       setProjects(projectsData.map((project) => ({ id: project.id, code: project.code, name: project.name })));
       setSequences(
         sequencesData.map((sequence) => ({
@@ -217,6 +277,16 @@ export default function ShotsManagement() {
     setForm(defaultForm);
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? [] : shots.map((shot) => shot.id));
+  }
+
   function toPayload(current: ShotForm) {
     return {
       projectId: current.projectId,
@@ -240,6 +310,7 @@ export default function ShotsManagement() {
     event.preventDefault();
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const isEdit = editingId !== null;
@@ -259,11 +330,43 @@ export default function ShotsManagement() {
 
       await loadData();
       emitDataSync("shots");
+      setSuccess(isEdit ? "Shot updated" : "Shot created");
       closeFormModal();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save shot");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function updateShotStatus(id: string, nextStatus: UiShotStatus) {
+    setStatusUpdatingId(id);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/shots/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: mapUiToBackendStatus(nextStatus) }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "Failed to update shot status");
+      }
+
+      setShots((prev) =>
+        prev.map((shot) =>
+          shot.id === id ? { ...shot, status: mapUiToBackendStatus(nextStatus) } : shot
+        )
+      );
+      emitDataSync("shots");
+      setSuccess("Shot status updated");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update shot status");
+    } finally {
+      setStatusUpdatingId(null);
     }
   }
 
@@ -273,6 +376,7 @@ export default function ShotsManagement() {
     }
 
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch(`/api/shots/${deletingId}`, {
@@ -287,14 +391,103 @@ export default function ShotsManagement() {
       setDeletingId(null);
       await loadData();
       emitDataSync("shots");
+      setSuccess("Shot removed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove shot");
+    }
+  }
+
+  function exportSelected() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    const selected = shots.filter((shot) => selectedIds.includes(shot.id));
+    const rows = [
+      "code,shotName,project,sequence,status,priority,artist,dueDate",
+      ...selected.map(
+        (shot) =>
+          `${shot.code ?? ""},${shot.shotName},${shot.project.code},${shot.sequence.code},${mapBackendToUiStatus(shot.status)},${shot.priority},${shot.artist?.name ?? ""},${shot.dueDate ?? ""}`
+      ),
+    ];
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "shots-selected.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function deleteSelected() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete ${selectedCount} selected shots?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/shots/${id}`, {
+            method: "DELETE",
+          })
+        )
+      );
+
+      setSelectedIds([]);
+      await loadData();
+      emitDataSync("shots");
+      setSuccess("Selected shots deleted");
+    } catch {
+      setError("Failed to delete selected shots");
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function updateSelectedStatus() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/shots/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: mapUiToBackendStatus(bulkStatus) }),
+          })
+        )
+      );
+
+      await loadData();
+      emitDataSync("shots");
+      setSuccess("Selected shot statuses updated");
+    } catch {
+      setError("Failed to update selected shot statuses");
+    } finally {
+      setBulkLoading(false);
     }
   }
 
   async function importBulk() {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const rows = csvToRows(bulkCsv);
@@ -362,6 +555,7 @@ export default function ShotsManagement() {
       setBulkCsv("");
       await loadData();
       emitDataSync("shots");
+      setSuccess("Bulk import completed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bulk import failed");
     } finally {
@@ -414,58 +608,138 @@ export default function ShotsManagement() {
       </div>
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {success ? <p className="text-sm text-emerald-400">{success}</p> : null}
 
-      <div className="rounded-2xl border border-slate-800 bg-[#111827] p-5">
+      <DataPanel>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void deleteSelected()}
+            disabled={bulkLoading || selectedCount === 0}
+            className="rounded-lg border border-red-700 px-3 py-2 text-xs text-red-300 hover:bg-red-900/30 disabled:opacity-50"
+          >
+            Delete Selected
+          </button>
+          <button
+            type="button"
+            onClick={exportSelected}
+            disabled={selectedCount === 0}
+            className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:border-slate-500 disabled:opacity-50"
+          >
+            Export Selected
+          </button>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as UiShotStatus)}
+            className="rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-xs text-slate-100"
+          >
+            {uiStatusOptions.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void updateSelectedStatus()}
+            disabled={bulkLoading || selectedCount === 0}
+            className="rounded-lg border border-blue-700 px-3 py-2 text-xs text-blue-300 hover:bg-blue-900/30 disabled:opacity-50"
+          >
+            Update Status
+          </button>
+          <span className="text-xs text-slate-400">Selected: {selectedCount}</span>
+        </div>
+
         {loading ? (
-          <p className="text-slate-300">Loading shots...</p>
+          <LoadingState text="Loading shots..." />
         ) : (
-          <table className="min-w-full text-left">
-            <thead className="text-xs uppercase tracking-wide text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Shot</th>
-                <th className="px-3 py-2">Project</th>
-                <th className="px-3 py-2">Sequence</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Priority</th>
-                <th className="px-3 py-2">Artist</th>
-                <th className="px-3 py-2">Due Date</th>
-                <th className="px-3 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shots.map((shot) => (
-                <tr key={shot.id} className="border-t border-slate-800 text-slate-200">
-                  <td className="px-3 py-2">{shot.code ?? shot.shotName}</td>
-                  <td className="px-3 py-2">{shot.project.code}</td>
-                  <td className="px-3 py-2">{shot.sequence.code}</td>
-                  <td className="px-3 py-2">{shot.status}</td>
-                  <td className="px-3 py-2">{shot.priority}</td>
-                  <td className="px-3 py-2">{shot.artist?.name ?? "Unassigned"}</td>
-                  <td className="px-3 py-2">{shot.dueDate ? new Date(shot.dueDate).toISOString().split("T")[0] : "-"}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(shot)}
-                        className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:border-slate-500"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingId(shot.id)}
-                        className="rounded-md border border-red-700 px-2 py-1 text-xs text-red-300 hover:bg-red-900/30"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </td>
+          <TableWrapper>
+            <table className="min-w-full text-left">
+              <thead className="text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all shots"
+                    />
+                  </th>
+                  <th className="px-3 py-2">Shot</th>
+                  <th className="px-3 py-2">Project</th>
+                  <th className="px-3 py-2">Sequence</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Priority</th>
+                  <th className="px-3 py-2">Artist</th>
+                  <th className="px-3 py-2">Due Date</th>
+                  <th className="px-3 py-2">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {shots.map((shot) => (
+                  <tr key={shot.id} className="border-t border-slate-800 text-slate-200">
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(shot.id)}
+                        onChange={() => toggleSelect(shot.id)}
+                        aria-label={`Select ${shot.code ?? shot.shotName}`}
+                      />
+                    </td>
+                    <td className="px-3 py-2">{shot.code ?? shot.shotName}</td>
+                    <td className="px-3 py-2">{shot.project.code}</td>
+                    <td className="px-3 py-2">{shot.sequence.code}</td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={mapBackendToUiStatus(shot.status)}
+                        onChange={(e) => void updateShotStatus(shot.id, e.target.value as UiShotStatus)}
+                        disabled={statusUpdatingId === shot.id}
+                        className="rounded-lg border border-slate-700 bg-[#0B1321] px-2 py-1 text-xs text-slate-100"
+                      >
+                        {uiStatusOptions.map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">{shot.priority}</td>
+                    <td className="px-3 py-2">{shot.artist?.name ?? "Unassigned"}</td>
+                    <td className="px-3 py-2">
+                      {shot.dueDate ? new Date(shot.dueDate).toISOString().split("T")[0] : "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(shot)}
+                          className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:border-slate-500"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingId(shot.id)}
+                          className="rounded-md border border-red-700 px-2 py-1 text-xs text-red-300 hover:bg-red-900/30"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {shots.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-3 py-3">
+                      <EmptyState text="No shots found." />
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </TableWrapper>
         )}
-      </div>
+      </DataPanel>
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -522,7 +796,7 @@ export default function ShotsManagement() {
                 className="rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
                 required
               >
-                {statusOptions.map((status) => (
+                {backendStatusOptions.map((status) => (
                   <option key={status} value={status}>
                     {status}
                   </option>
@@ -623,7 +897,7 @@ export default function ShotsManagement() {
                   disabled={saving}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : editingShot ? "Update Shot" : "Create Shot"}
+                  {pendingCrudLabel(saving, editingShot ? "update" : "create", "Shot")}
                 </button>
                 <button
                   type="button"
@@ -671,7 +945,7 @@ export default function ShotsManagement() {
                 disabled={saving}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
               >
-                {saving ? "Importing..." : "Import Shots"}
+                {pendingLabel({ pending: saving, pendingLabel: "Importing...", idleLabel: "Import Shots" })}
               </button>
               <button
                 type="button"

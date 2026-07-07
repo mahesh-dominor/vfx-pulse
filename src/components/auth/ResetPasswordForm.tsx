@@ -7,7 +7,9 @@ import {
   resetPassword,
   type ResetPasswordState,
 } from "@/features/auth/actions/reset-password";
+import { pendingLabel } from "@/components/ui/async-action-label";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { Input } from "@/components/ui/input";
 
 type ResetPasswordFormProps = {
@@ -56,13 +58,15 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           />
 
           {state.error ? (
-            <p className="text-sm text-red-400">{state.error}</p>
+            <FeedbackMessage variant="error" message={state.error} className="rounded-lg" />
           ) : null}
 
           {state.success ? (
-            <p className="text-sm text-emerald-400">
-              Password updated successfully. You can now sign in.
-            </p>
+            <FeedbackMessage
+              variant="success"
+              className="rounded-lg"
+              message="Password updated successfully. You can now sign in."
+            />
           ) : null}
 
           <Button
@@ -70,7 +74,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             disabled={pending}
             className="bg-blue-600 py-3 hover:bg-blue-500"
           >
-            {pending ? "Updating..." : "Update Password"}
+            {pendingLabel({ pending, pendingLabel: "Updating...", idleLabel: "Update Password" })}
           </Button>
         </form>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { USER_PERMISSION_MODULES, USER_ROLES } from "@/constants/users";
 import { emitDataSync, subscribeDataSync } from "@/lib/live-sync";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 type StudioItem = { id: string; key: string; value: string };
 type DepartmentItem = { id: string; name: string; code: string; isActive: boolean };
@@ -61,6 +62,7 @@ export default function SettingsManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     void loadSettings();
@@ -130,11 +132,13 @@ export default function SettingsManagement() {
   async function saveStudioGroup(entries: Record<string, string>) {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       await Promise.all(Object.entries(entries).map(([key, value]) => upsertStudioPair(key, value)));
       await loadSettings();
       emitDataSync("settings");
+      setSuccess("Settings saved successfully");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save settings");
     } finally {
@@ -145,6 +149,7 @@ export default function SettingsManagement() {
   async function createDepartment() {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch("/api/settings", {
@@ -161,6 +166,7 @@ export default function SettingsManagement() {
       setNewDepartment({ name: "", code: "", isActive: true });
       await loadSettings();
       emitDataSync("settings");
+      setSuccess("Department added");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create department");
     } finally {
@@ -171,6 +177,7 @@ export default function SettingsManagement() {
   async function createStatus() {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch("/api/settings", {
@@ -187,6 +194,7 @@ export default function SettingsManagement() {
       setNewStatus({ module: "shots", name: "", colorHex: "#22c55e", isActive: true });
       await loadSettings();
       emitDataSync("settings");
+      setSuccess("Status added");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create status");
     } finally {
@@ -197,6 +205,7 @@ export default function SettingsManagement() {
   async function createPriority() {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch("/api/settings", {
@@ -213,6 +222,7 @@ export default function SettingsManagement() {
       setNewPriority({ module: "shots", name: "", level: "1", isActive: true });
       await loadSettings();
       emitDataSync("settings");
+      setSuccess("Priority added");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create priority");
     } finally {
@@ -223,6 +233,7 @@ export default function SettingsManagement() {
   async function removeItem(type: "department" | "status" | "priority", id: string) {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch(`/api/settings?type=${type}&id=${id}`, {
@@ -236,6 +247,7 @@ export default function SettingsManagement() {
 
       await loadSettings();
       emitDataSync("settings");
+      setSuccess("Item removed");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove settings item");
     } finally {
@@ -245,8 +257,9 @@ export default function SettingsManagement() {
 
   return (
     <section className="space-y-6">
-      {error ? <p className="rounded border border-red-800 bg-red-900/20 p-3 text-sm text-red-300">{error}</p> : null}
-      {loading ? <p className="text-slate-300">Loading settings...</p> : null}
+      {error ? <FeedbackMessage variant="error" message={error} /> : null}
+      {success ? <FeedbackMessage variant="success" message={success} /> : null}
+      {loading ? <FeedbackMessage variant="info" message="Loading settings..." /> : null}
 
       <div className="grid gap-6 md:grid-cols-2">
         <section className="rounded-2xl border border-slate-800 bg-[#111827] p-5">

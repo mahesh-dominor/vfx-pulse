@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import TopNav from "@/components/layout/TopNav";
+import { DataPanel, EmptyState, LoadingState, TableWrapper } from "@/components/ui/data-states";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
+
 type AssetItem = {
   id: string;
   name: string;
@@ -13,10 +17,12 @@ type AssetItem = {
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
         const response = await fetch("/api/assets");
         if (!response.ok) {
@@ -27,6 +33,8 @@ export default function AssetsPage() {
         setAssets(data);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unable to fetch assets");
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -35,14 +43,19 @@ export default function AssetsPage() {
 
   return (
     <main className="min-h-screen bg-[#070B14] p-8">
+      <TopNav />
       <h1 className="mb-6 text-3xl font-semibold text-slate-100">Assets</h1>
 
       {error ? (
-        <p className="mb-4 rounded border border-red-800 bg-red-900/20 p-3 text-red-300">{error}</p>
+        <FeedbackMessage variant="error" message={error} className="mb-4" />
       ) : null}
 
-      <div className="rounded-2xl border border-slate-800 bg-[#111827] p-5">
-        <table className="min-w-full text-left">
+      <DataPanel>
+        {loading ? (
+          <LoadingState text="Loading assets..." />
+        ) : (
+          <TableWrapper>
+            <table className="min-w-full text-left">
           <thead className="text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th className="px-3 py-2">Name</th>
@@ -62,9 +75,18 @@ export default function AssetsPage() {
                 <td className="px-3 py-2">{asset.version}</td>
               </tr>
             ))}
+            {assets.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-3">
+                  <EmptyState text="No assets found." />
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
-      </div>
+          </TableWrapper>
+        )}
+      </DataPanel>
     </main>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { emitDataSync, subscribeDataSync } from "@/lib/live-sync";
+import { pendingCrudLabel } from "@/components/ui/async-action-label";
+import { DataPanel, EmptyState, LoadingState, TableWrapper } from "@/components/ui/data-states";
 
 type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "ON_HOLD" | "REVIEW" | "COMPLETED";
 
@@ -304,11 +306,12 @@ export default function TimeLogsManagement() {
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-      <div className="rounded-2xl border border-slate-800 bg-[#111827] p-5">
+      <DataPanel>
         {loading ? (
-          <p className="text-slate-300">Loading time logs...</p>
+          <LoadingState text="Loading time logs..." />
         ) : (
-          <table className="min-w-full text-left">
+          <TableWrapper>
+            <table className="min-w-full text-left">
             <thead className="text-xs uppercase tracking-wide text-slate-400">
               <tr>
                 <th className="px-3 py-2">Date</th>
@@ -349,10 +352,18 @@ export default function TimeLogsManagement() {
                   </td>
                 </tr>
               ))}
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-3">
+                    <EmptyState text="No time logs found." />
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          </TableWrapper>
         )}
-      </div>
+      </DataPanel>
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -471,7 +482,7 @@ export default function TimeLogsManagement() {
                   disabled={saving}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : editingLog ? "Update Time Log" : "Create Time Log"}
+                  {pendingCrudLabel(saving, editingLog ? "update" : "create", "Time Log")}
                 </button>
                 <button
                   type="button"

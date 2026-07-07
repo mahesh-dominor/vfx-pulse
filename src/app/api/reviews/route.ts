@@ -13,8 +13,32 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const shotId = searchParams.get("shotId") ?? undefined;
+    const projectId = searchParams.get("projectId") ?? undefined;
+    const artistId = searchParams.get("artistId") ?? undefined;
+    const status = (searchParams.get("status") ?? undefined) as
+      | "OPEN"
+      | "IN_PROGRESS"
+      | "RESOLVED"
+      | "APPROVED"
+      | "REJECTED"
+      | undefined;
+    const search = searchParams.get("search") ?? undefined;
+    const fromDate = searchParams.get("fromDate")
+      ? new Date(searchParams.get("fromDate") as string)
+      : undefined;
+    const toDate = searchParams.get("toDate")
+      ? new Date(searchParams.get("toDate") as string)
+      : undefined;
 
-    const reviews = await reviewService.listReviews(shotId);
+    const reviews = await reviewService.listReviews({
+      shotId,
+      projectId,
+      artistId,
+      status,
+      search,
+      fromDate,
+      toDate,
+    });
     return NextResponse.json(reviews);
   } catch (error) {
     console.error("GET /api/reviews error:", error);
