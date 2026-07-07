@@ -16,7 +16,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:deploy": "prisma migrate deploy",
-    "deploy:vercel": "npm run prisma:generate && npm run prisma:deploy && npm run prisma:seed && npm run build",
+    "deploy:db": "npm run prisma:generate && npm run prisma:deploy && npm run prisma:seed",
+    "deploy:vercel": "npm run prisma:generate && npm run build",
     "verify:release": "npm run prisma:validate && npm run prisma:generate && npm run type-check && npm run lint && npm run build",
     "release:prepare": "npm run verify:release && npm run docs:check",
     "docs:check": "node scripts/docs-check.mjs"
