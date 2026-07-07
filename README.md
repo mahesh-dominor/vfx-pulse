@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VFX Pulse
 
-## Getting Started
+Production management platform for VFX studios.
 
-First, run the development server:
+## Stack
+- Next.js 16 App Router
+- React 19 + TypeScript (strict)
+- Prisma 7 + PostgreSQL
+- NextAuth v5 (credentials)
+- Zod validation
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Architecture
+- Feature-based structure:
+	- src/app
+	- src/features
+	- src/components
+	- src/services
+	- src/lib
+	- src/hooks
+	- src/types
+	- src/constants
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Modules
+1. Authentication
+2. Dashboard
+3. Users
+4. Projects
+5. Sequences
+6. Shots
+7. Daily Updates
+8. Review System
+9. Asset Management
+10. Reports
+11. Notifications
+12. Settings
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local Setup
+1. Copy `.env.example` to `.env` and update values.
+2. Install dependencies:
+	 - `npm ci`
+3. Validate and generate Prisma:
+	 - `npm run prisma:validate`
+	 - `npm run prisma:generate`
+4. Run migrations:
+	 - `npm run prisma:migrate -- --name init`
+5. Start development server:
+	 - `npm run dev`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Quality Commands
+- `npm run type-check`
+- `npm run lint`
+- `npm run build`
 
-## Learn More
+## Production and DevOps
+- Docker:
+	- `Dockerfile`
+	- `docker-compose.yml`
+- CI/CD:
+	- `.github/workflows/ci.yml`
+- Docs:
+	- `docs/deployment-guide.md`
+	- `docs/database-migration-strategy.md`
+	- `docs/backup-strategy.md`
+	- `docs/logging-monitoring-error-tracking.md`
+	- `docs/security-hardening.md`
+	- `docs/performance-optimization.md`
+	- `docs/testing-checklist.md`
+	- `docs/api-documentation.md`
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Version
+- Release baseline: v1.0.0

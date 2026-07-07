@@ -1,11 +1,23 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "./lib/prisma";
+import type { UserRole } from "@prisma/client";
+import { NextResponse } from "next/server";
+
+import { authService } from "@/services/auth.service";
+import {
+  canAccessPath,
+  isPublicAuthRoute,
+} from "@/features/auth/permissions";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.AUTH_SECRET,
+
   session: {
     strategy: "jwt",
+  },
+
+  pages: {
+    signIn: "/login",
   },
 
   providers: [
@@ -13,8 +25,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Credentials",
 
       credentials: {
-        email: {},
-        password: {},
+        email: {
+          label: "Email",
+          type: "email",
+        },
+        password: {
+          label: "Password",
+          type: "password",
+        },
       },
 
       async authorize(credentials) {
@@ -22,22 +40,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email as string,
-          },
-        });
+        const email = credentials.email.toString();
+        const password = credentials.password.toString();
+
+        const user = await authService.validateCredentials(email, password);
 
         if (!user) {
-          return null;
-        }
-
-        const passwordMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!passwordMatch) {
           return null;
         }
 
@@ -54,7 +62,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
+        token.role = user.role;
       }
 
       return token;
@@ -62,17 +70,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub;
-        (session.user as any).role = (token as any).role;
+        session.user.id = token.sub ?? "";
+        session.user.role = token.role as UserRole;
       }
 
       return session;
     },
-  },
 
-  pages: {
-    signIn: "/login",
-  },
+    authorized({ auth, request }) {
+      const pathname = request.nextUrl.pathname;
 
-  secret: process.env.AUTH_SECRET,
+      if (isPublicAuthRoute(pathname)) {
+        if (auth?.user) {
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+
+        return true;
+      }
+
+      if (!auth?.user?.role) {
+        return false;
+      }
+
+      if (!canAccessPath(auth.user.role, pathname)) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+
+      return true;
+    },
+  },
 });

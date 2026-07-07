@@ -1,70 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useActionState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { login, type LoginState } from "@/features/auth/actions/login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+const initialState: LoginState = {
+  success: false,
+};
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-      <Card className="w-full max-w-md shadow-2xl rounded-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-[#090D17] px-6 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-[#101827] p-8 shadow-2xl shadow-black/35">
+        <h1 className="mb-1 text-center text-3xl font-semibold tracking-tight text-slate-100">
+          VFX Pulse
+        </h1>
 
-        <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-3xl font-bold">
-            🎬 VFX Pulse
-          </CardTitle>
+        <p className="mb-8 text-center text-sm text-slate-400">
+          Sign in to continue to production control
+        </p>
 
-          <p className="text-sm text-slate-500">
-            Production Management System
-          </p>
-        </CardHeader>
+        <form action={formAction} className="space-y-4">
+          <Input
+            name="email"
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            className="border-slate-700 bg-[#0B1321] text-slate-100 placeholder:text-slate-500 focus:border-blue-500"
+            required
+          />
 
-        <CardContent className="space-y-5">
+          <Input
+            name="password"
+            type="password"
+            placeholder="Password"
+            autoComplete="current-password"
+            className="border-slate-700 bg-[#0B1321] text-slate-100 placeholder:text-slate-500 focus:border-blue-500"
+            required
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="email">
-              Email
-            </Label>
+          {state.error ? (
+            <p className="text-sm text-red-400">{state.error}</p>
+          ) : null}
 
-            <Input
-              id="email"
-              type="email"
-              placeholder="mahesh@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">
-              Password
-            </Label>
-
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          <Button className="w-full">
-            Login
+          <Button
+            type="submit"
+            disabled={pending}
+            className="bg-blue-600 py-3 hover:bg-blue-500"
+          >
+            {pending ? "Signing in..." : "Sign In"}
           </Button>
+        </form>
 
-          <p className="text-center text-xs text-slate-400">
-            Version 0.2
-          </p>
+        <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
+          <span>Need help with access?</span>
 
-        </CardContent>
-      </Card>
+          <Link
+            href="/forgot-password"
+            className="text-blue-400 transition hover:text-blue-300"
+          >
+            Forgot password
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

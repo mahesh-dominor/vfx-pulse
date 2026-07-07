@@ -1,11 +1,43 @@
 @import "tailwindcss";
 
 html,
-body {
-  margin: 0;
-  padding: 0;
+body,
+:root {
+  width: 100%;
+  height: 100%;
 }
 
 body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+:root {
+  --background: #f4f7fb;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+
+  --border: #d1d5db;
+  --input: #d1d5db;
+  --ring: #2563eb;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --radius: 0.75rem;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

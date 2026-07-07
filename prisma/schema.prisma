@@ -6,58 +6,708 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        String        @id @default(cuid())
-  name      String
-  email     String        @unique
-  password  String
-  role      UserRole      @default(ARTIST)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  updates   DailyUpdate[]
-}
-
-model Project {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  shots       Shot[]
-}
-
-model Shot {
-  id        String        @id @default(cuid())
-  shotName  String
-  projectId String
-  createdAt DateTime      @default(now())
-  updates   DailyUpdate[]
-  project   Project       @relation(fields: [projectId], references: [id])
-}
-
-model DailyUpdate {
-  id        String       @id @default(cuid())
-  userId    String
-  shotId    String
-  hours     Float
-  status    UpdateStatus
-  comments  String?
-  createdAt DateTime     @default(now())
-  shot      Shot         @relation(fields: [shotId], references: [id])
-  user      User         @relation(fields: [userId], references: [id])
-}
-
 enum UserRole {
   ADMIN
+  PRODUCER
+  COORDINATOR
   SUPERVISOR
   LEAD
   ARTIST
+  CLIENT
 }
 
-enum UpdateStatus {
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ShotStatus {
+  NOT_STARTED
   WIP
-  HOLD
-  REVIEW
+  INTERNAL_REVIEW
+  CLIENT_REVIEW
   APPROVED
+  DELIVERED
+  HOLD
+}
+
+enum ReviewType {
+  INTERNAL
+  CLIENT
+}
+
+enum ReviewStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  APPROVED
+  REJECTED
+}
+
+enum AssetType {
+  REFERENCE
+  HDRI
+  TEXTURE
+  MODEL
+  CAMERA
+  OTHER
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum ArtistDesignation {
+  JUNIOR_ARTIST
+  MID_ARTIST
+  SENIOR_ARTIST
+  LEAD
+  SUPERVISOR
+}
+
+enum ArtistDepartment {
+  PREP
+  MATCHMOVE
+  LAYOUT
+  ANIMATION
+  FX
+  LIGHTING
+  COMPOSITING
+  ROTO
+  PAINT
+  QC
+  PRODUCTION
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  REVIEW
+  COMPLETED
+}
+
+model User {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  password    String
+  image       String?
+
+  role        UserRole  @default(ARTIST)
+
+  isActive    Boolean   @default(true)
+  lastLogin   DateTime?
+  deletedAt   DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  projects       Project[] @relation("Producer")
+  assignedShots  Shot[]    @relation("ArtistShots")
+  dailyUpdates   DailyUpdate[]
+  activityLogs   ActivityLog[]
+  teamMemberships UserTeam[]
+  permissions     UserPermission[]
+  reviewsCreated  Review[] @relation("ReviewCreator")
+  reviewNotes     ReviewNote[]
+  notifications   Notification[] @relation("NotificationUser")
+  comments        Comment[]
+  attachments     Attachment[]
+  userPreferences UserPreference[]
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Team {
+  id          String @id @default(cuid())
+
+  name        String
+  code        String @unique
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  members UserTeam[]
+}
+
+model UserTeam {
+  id        String @id @default(cuid())
+
+  userId    String
+  teamId    String
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model UserPermission {
+  id        String @id @default(cuid())
+
+  userId    String
+
+  module    String
+
+  canView   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canUpdate Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@index([userId])
+}
+
+model Project {
+  id           String         @id @default(cuid())
+
+  name         String
+  code         String         @unique
+  description  String?
+
+  client       String?
+
+  fps          Int?
+  resolution   String?
+  colorSpace   String?
+
+  startDate    DateTime?
+  deliveryDate DateTime?
+
+  status       ProjectStatus @default(ACTIVE)
+
+  producerId   String?
+  producer     User? @relation("Producer", fields: [producerId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  sequences Sequence[]
+  shots     Shot[]
+  tasks     ShotTask[]
+  timeLogs  TimeLog[]
+  dailyUpdates DailyUpdate[]
+  assets      Asset[]
+  comments    Comment[]
+}
+
+model Sequence {
+  id        String @id @default(cuid())
+
+  code      String
+  name      String
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  shots Shot[]
+
+  comments Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+}
+
+model Shot {
+  id String @id @default(cuid())
+
+  code     String?
+  shotName String
+  description String?
+
+  status ShotStatus @default(NOT_STARTED)
+
+  priority Int @default(3)
+  version  Int @default(1)
+
+  frameStart Int?
+  frameEnd   Int?
+
+  bidDays        Float?
+  actualDays     Float?
+  estimatedHours Float?
+
+  notes String?
+
+  dueDate DateTime?
+
+  projectId  String
+  sequenceId String
+  artistId   String?
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  tasks    ShotTask[]
+  timeLogs TimeLog[]
+  dailyUpdates DailyUpdate[]
+  artist   User?    @relation("ArtistShots", fields: [artistId], references: [id])
+  reviews  Review[]
+  assets   Asset[]
+  comments Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+}
+
+model Artist {
+  id            String @id @default(cuid())
+
+  employeeId    String @unique
+  fullName      String
+  email         String @unique
+  phoneNumber   String?
+
+  designation   ArtistDesignation
+  department    ArtistDepartment
+
+  joiningDate   DateTime
+  isActive      Boolean @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  tasks         ShotTask[]
+  timeLogs      TimeLog[]
+}
+
+model ShotTask {
+  id              String @id @default(cuid())
+
+  projectId       String
+  shotId          String
+  artistId        String
+
+  taskName        String
+  description     String?
+  estimatedMinutes Int?
+  status          TaskStatus @default(NOT_STARTED)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shot            Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  artist          Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  timeLogs        TimeLog[]
+
+  @@index([projectId])
+  @@index([shotId])
+  @@index([artistId])
+}
+
+model TimeLog {
+  id              String @id @default(cuid())
+
+  logDate         DateTime
+
+  projectId       String
+  shotId          String
+  taskId          String
+  artistId        String
+
+  activity        String
+  minutesSpent    Int
+  status          TaskStatus @default(IN_PROGRESS)
+  notes           String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shot            Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  task            ShotTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  artist          Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([logDate])
+  @@index([projectId])
+  @@index([shotId])
+  @@index([taskId])
+  @@index([artistId])
+}
+
+model Account {
+  id String @id @default(cuid())
+
+  userId String
+
+  type String
+
+  provider String
+
+  providerAccountId String
+
+  refresh_token String?
+  access_token  String?
+
+  expires_at Int?
+
+  token_type String?
+
+  scope String?
+
+  id_token String?
+
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  sessionToken String @unique
+
+  userId String
+
+  expires DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+
+  token String @unique
+
+  expires DateTime
+
+  @@unique([identifier, token])
+}
+
+model DailyUpdate {
+  id String @id @default(cuid())
+
+  userId String
+  projectId String
+  shotId String
+
+  hoursWorked Float @default(0)
+  taskType String
+  status String
+
+  comments String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shot Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([shotId])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id String @id @default(cuid())
+
+  userId String
+  action String
+  description String?
+  
+  entityType String?
+  entityId String?
+
+  metadata String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Review {
+  id           String @id @default(cuid())
+
+  shotId        String
+  createdById   String
+
+  reviewType    ReviewType
+  status        ReviewStatus @default(OPEN)
+
+  title         String
+  description   String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  shot          Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  createdBy     User @relation("ReviewCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  notes         ReviewNote[]
+  annotations   Annotation[]
+  comments      Comment[]
+  attachments   Attachment[]
+  versions      VersionHistory[]
+
+  @@index([shotId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model ReviewNote {
+  id          String @id @default(cuid())
+
+  reviewId    String
+  userId      String
+
+  content     String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  review      Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([userId])
+}
+
+model Annotation {
+  id          String @id @default(cuid())
+
+  reviewId    String
+
+  frame       Int?
+  x           Float?
+  y           Float?
+  text        String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  review      Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+model Asset {
+  id          String @id @default(cuid())
+
+  projectId   String
+  shotId      String?
+
+  name        String
+  assetType   AssetType
+  fileUrl     String
+  version     Int @default(1)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shot        Shot? @relation(fields: [shotId], references: [id], onDelete: SetNull)
+
+  comments    Comment[]
+  attachments Attachment[]
+  versions    VersionHistory[]
+
+  @@index([projectId])
+  @@index([shotId])
+}
+
+model Notification {
+  id          String @id @default(cuid())
+
+  userId      String
+
+  title       String
+  message     String
+  channel     NotificationChannel @default(IN_APP)
+  isRead      Boolean @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        User @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id          String @id @default(cuid())
+
+  userId      String
+
+  message     String
+
+  projectId   String?
+  sequenceId  String?
+  shotId      String?
+  reviewId    String?
+  assetId     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sequence    Sequence? @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+  shot        Shot? @relation(fields: [shotId], references: [id], onDelete: SetNull)
+  review      Review? @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([sequenceId])
+  @@index([shotId])
+  @@index([reviewId])
+  @@index([assetId])
+}
+
+model Attachment {
+  id          String @id @default(cuid())
+
+  userId      String
+
+  fileName    String
+  fileUrl     String
+
+  reviewId    String?
+  assetId     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review      Review? @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([reviewId])
+  @@index([assetId])
+}
+
+model VersionHistory {
+  id          String @id @default(cuid())
+
+  reviewId    String?
+  assetId     String?
+
+  version     Int
+  note        String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  review      Review? @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([reviewId])
+  @@index([assetId])
+}
+
+model StudioSetting {
+  id          String @id @default(cuid())
+
+  key         String @unique
+  value       String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+model DepartmentSetting {
+  id          String @id @default(cuid())
+
+  name        String
+  code        String @unique
+  isActive    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+}
+
+model StatusSetting {
+  id          String @id @default(cuid())
+
+  module      String
+  name        String
+  colorHex    String?
+  isActive    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([module, name])
+}
+
+model PrioritySetting {
+  id          String @id @default(cuid())
+
+  module      String
+  name        String
+  level       Int
+  isActive    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([module, level])
+}
+
+model UserPreference {
+  id          String @id @default(cuid())
+
+  userId      String
+  key         String
+  value       String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }
