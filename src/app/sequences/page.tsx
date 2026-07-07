@@ -1,7 +1,16 @@
 import { sequenceService } from "@/services/sequence.service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function SequencesPage() {
-  const sequences = await sequenceService.listSequences();
+  let sequences: Awaited<ReturnType<typeof sequenceService.listSequences>> = [];
+
+  try {
+    sequences = await sequenceService.listSequences();
+  } catch {
+    sequences = [];
+  }
 
   return (
     <main className="min-h-screen bg-[#070B14] p-8">
@@ -15,6 +24,11 @@ export default async function SequencesPage() {
             <p className="mt-2 text-xs text-slate-500">Shots: {sequence._count.shots}</p>
           </div>
         ))}
+        {sequences.length === 0 ? (
+          <div className="rounded-xl border border-slate-800 bg-[#111827] p-4 text-sm text-slate-400">
+            No sequences found yet.
+          </div>
+        ) : null}
       </div>
     </main>
   );
