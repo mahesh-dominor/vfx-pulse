@@ -27,7 +27,8 @@ type UiShotStatus =
 
 type ProjectItem = { id: string; code: string; name: string };
 type SequenceItem = { id: string; code: string; name: string; projectId: string };
-type ArtistItem = { id: string; fullName: string };
+type AssigneeItem = { id: string; name: string };
+type ArtistUserItem = { id: string; name: string; email: string };
 
 type ShotItem = {
   id: string;
@@ -160,7 +161,7 @@ export default function ShotsManagement() {
   const [shots, setShots] = useState<ShotItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [sequences, setSequences] = useState<SequenceItem[]>([]);
-  const [artists, setArtists] = useState<ArtistItem[]>([]);
+  const [artists, setArtists] = useState<AssigneeItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -211,7 +212,7 @@ export default function ShotsManagement() {
         fetch("/api/shots", { cache: "no-store" }),
         fetch("/api/projects?activeOnly=true", { cache: "no-store" }),
         fetch("/api/sequences", { cache: "no-store" }),
-        fetch("/api/artists", { cache: "no-store" }),
+        fetch("/api/users?role=ARTIST", { cache: "no-store" }),
       ]);
 
       if (!shotsRes.ok || !projectsRes.ok || !sequencesRes.ok || !artistsRes.ok) {
@@ -223,7 +224,7 @@ export default function ShotsManagement() {
         projectsRes.json(),
         sequencesRes.json(),
         artistsRes.json(),
-      ])) as [ShotItem[], ProjectItem[], SequenceItem[], ArtistItem[]];
+      ])) as [ShotItem[], ProjectItem[], SequenceItem[], ArtistUserItem[]];
 
       setShots(shotsData);
       setSelectedIds((prev) => prev.filter((id) => shotsData.some((shot) => shot.id === id)));
@@ -236,7 +237,7 @@ export default function ShotsManagement() {
           projectId: sequence.projectId,
         }))
       );
-      setArtists(artistsData.map((artist) => ({ id: artist.id, fullName: artist.fullName })));
+      setArtists(artistsData.map((artist) => ({ id: artist.id, name: artist.name })));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load shot management data");
     } finally {
@@ -785,7 +786,7 @@ export default function ShotsManagement() {
                 <option value="">Unassigned</option>
                 {artists.map((artist) => (
                   <option key={artist.id} value={artist.id}>
-                    {artist.fullName}
+                    {artist.name}
                   </option>
                 ))}
               </select>
