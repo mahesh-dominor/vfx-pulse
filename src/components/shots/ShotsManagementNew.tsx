@@ -829,6 +829,7 @@ export default function ShotsManagementNew() {
               <thead className="sticky top-0 bg-[#0B1321] text-xs uppercase text-slate-400">
                 <tr className="border-b border-slate-800">
                   <th className="px-3 py-3 font-medium">Shot</th>
+                  <th className="px-3 py-3 font-medium">Project</th>
                   <th className="px-3 py-3 font-medium">Sequence</th>
                   <th className="px-3 py-3 font-medium">Episode</th>
                   <th className="px-3 py-3 font-medium">Code</th>
@@ -842,6 +843,11 @@ export default function ShotsManagementNew() {
                 {filteredShots.map((shot) => (
                   <tr key={shot.id} className="bg-[#0B1321] hover:bg-white/[0.02]">
                     <td className="px-3 py-3 font-medium text-white">{shot.shotName}</td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full bg-purple-900/50 px-2.5 py-1 text-xs font-medium text-purple-300">
+                        {shot.project?.code || "-"}
+                      </span>
+                    </td>
                     <td className="px-3 py-3">
                       <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium">
                         {shot.sequence.code}
