@@ -39,9 +39,21 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const parsed = projectSchema.safeParse(body);
+    
+    // Sanitize empty strings to undefined for optional fields
+    const sanitizedBody = {
+      ...body,
+      client: body.client?.trim() ? body.client : undefined,
+      productionHouse: body.productionHouse?.trim() ? body.productionHouse : undefined,
+      producerId: body.producerId?.trim() ? body.producerId : undefined,
+      deliveryDate: body.deliveryDate?.trim() ? body.deliveryDate : undefined,
+      startDate: body.startDate?.trim() ? body.startDate : undefined,
+    };
+    
+    const parsed = projectSchema.safeParse(sanitizedBody);
 
     if (!parsed.success) {
+      console.warn("Project schema validation failed:", parsed.error.issues);
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },
         { status: 400 }
@@ -54,7 +66,7 @@ export async function POST(req: NextRequest) {
     console.error("POST /api/projects error:", error);
 
     return NextResponse.json(
-      { error: "Failed to create project" },
+      { error: error instanceof Error ? error.message : "Failed to create project" },
       { status: 500 }
     );
   }
