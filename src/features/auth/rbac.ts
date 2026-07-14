@@ -66,7 +66,7 @@ export async function canAccessMultipleModuleActions(
   userId: string,
   role: UserRole,
   checks: Array<{ module: UserPermissionModule; action: PermissionAction }>
-) {
+): Promise<boolean[]> {
   // Fetch permissions once and reuse for all checks to avoid connection pool exhaustion
   const permissions = await getResolvedPermissions(userId, role);
 
@@ -86,6 +86,8 @@ export async function canAccessMultipleModuleActions(
         return permission.canUpdate;
       case "delete":
         return permission.canDelete;
+      default:
+        return false;
     }
   });
 }

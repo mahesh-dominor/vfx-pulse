@@ -6,6 +6,9 @@ const connectionString = process.env.DATABASE_URL!;
 
 const pool = new Pool({
   connectionString,
+  max: 5, // Limit to 5 concurrent connections to avoid exhaustion on Vercel Postgres
+  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 10000, // Timeout after 10 seconds if cannot acquire connection
 });
 
 const adapter = new PrismaPg(pool);
