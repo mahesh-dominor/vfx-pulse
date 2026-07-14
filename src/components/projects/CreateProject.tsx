@@ -51,6 +51,7 @@ interface CreateProjectProps {
 
 export default function CreateProject({ projectId, onSuccess, producers = [] }: CreateProjectProps) {
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<ProjectFormData>(defaultForm);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -69,7 +70,54 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (projectId) {
+      void loadProjectData();
+    }
+  }, [projectId]);
+
+  const loadProjectData = async () => {
+    if (!projectId) return;
+    setLoading(true);
+    try {
+      // Load project data
+      const projectRes = await fetch(`/api/projects?id=${projectId}`);
+      if (projectRes.ok) {
+        const projects = await projectRes.json();
+        const project = Array.isArray(projects) ? projects[0] : projects;
+        if (project) {
+          setForm({
+            code: project.code,
+            name: project.name,
+            description: project.description || "",
+            client: project.client || "",
+            productionHouse: project.productionHouse || "",
+            producer: project.producerId || "",
+            priority: project.priority,
+            status: project.status,
+            deliveryDate: project.deliveryDate ? project.deliveryDate.split("T")[0] : "",
+          });
+        }
+      }
+
+      // Load episodes
+      const episodesRes = await fetch(`/api/episodes?projectId=${projectId}`);
+      if (episodesRes.ok) {
+        const loadedEpisodes = await episodesRes.json();
+        setEpisodes(Array.isArray(loadedEpisodes) ? loadedEpisodes : []);
+      }
+
+      // Load sequences
+      const sequencesRes = await fetch(`/api/sequences?projectId=${projectId}`);
+      if (sequencesRes.ok) {
+        const loadedSequences = await sequencesRes.json();
+        setSequences(Array.isArray(loadedSequences) ? loadedSequences : []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load project data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addEpisode = useCallback(
     (code: string) => {
@@ -286,6 +334,17 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
   };
 
   if (!mounted) return null;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full border-2 border-slate-700 border-t-blue-500 h-8 w-8" />
+          <p className="mt-2 text-sm text-slate-400">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

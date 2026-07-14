@@ -16,6 +16,7 @@ import {
 import { emitDataSync, subscribeDataSync } from "@/lib/live-sync";
 import { pendingCrudLabel } from "@/components/ui/async-action-label";
 import { DataPanel, EmptyState, LoadingState, TableWrapper } from "@/components/ui/data-states";
+import CreateProject from "@/components/projects/CreateProject";
 
 type ProjectStatus = "ACTIVE" | "ON_HOLD" | "COMPLETED" | "ARCHIVED";
 type ProjectPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -644,45 +645,24 @@ export default function ProjectsManagement({ canCreate, canUpdate, canDelete }: 
       </div>
 
       {canCreate || (canUpdate && editingProject) ? (
-      <form onSubmit={saveProject} className="rounded-3xl border border-slate-800 bg-[#111827] p-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-100">{editingProject ? "Edit Project" : "Create Project"}</h2>
-            <p className="mt-1 text-sm text-slate-400">Track client work, ownership, delivery timing, and portfolio health from one view.</p>
-          </div>
+        <div className="rounded-3xl border border-slate-800 bg-[#111827] p-6">
           {editingProject && canUpdate ? (
-            <button type="button" onClick={cancelEdit} className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-slate-500">
-              Cancel edit
+            <button type="button" onClick={cancelEdit} className="mb-4 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-slate-500">
+              ← Back
             </button>
           ) : null}
+          <CreateProject
+            projectId={editingProject?.id}
+            producers={producers}
+            onSuccess={() => {
+              void loadProjects();
+              emitDataSync("projects");
+              setSuccess("Project created successfully");
+              setEditingId(null);
+              setTimeout(() => setSuccess(null), 3000);
+            }}
+          />
         </div>
-
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input value={form.code} onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Project code" className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100" required />
-          <input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Project name" className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100" required />
-          <input value={form.client} onChange={(event) => setForm((prev) => ({ ...prev, client: event.target.value }))} placeholder="Client" className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100" />
-          <input value={form.productionHouse} onChange={(event) => setForm((prev) => ({ ...prev, productionHouse: event.target.value }))} placeholder="Production house" className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100" />
-          <select value={form.status} onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProjectStatus }))} className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100">
-            {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-          </select>
-          <select value={form.priority} onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value as ProjectPriority }))} className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100">
-            {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-          </select>
-          <select value={form.producerId} onChange={(event) => setForm((prev) => ({ ...prev, producerId: event.target.value }))} className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100">
-            <option value="">Unassigned producer</option>
-            {producers.map((producer) => <option key={producer.id} value={producer.id}>{producer.name}</option>)}
-          </select>
-          <input value={form.deliveryDate} onChange={(event) => setForm((prev) => ({ ...prev, deliveryDate: event.target.value }))} type="date" className="rounded-xl border border-slate-700 bg-[#0B1321] px-3 py-2.5 text-sm text-slate-100" />
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60">
-            {pendingCrudLabel(saving, editingProject ? "update" : "create", "Project")}
-          </button>
-          {success ? <p className="text-sm text-emerald-400">{success}</p> : null}
-          {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-        </div>
-      </form>
       ) : null}
 
       <DataPanel className="space-y-5 p-5">
