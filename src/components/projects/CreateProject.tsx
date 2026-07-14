@@ -50,7 +50,6 @@ interface CreateProjectProps {
 }
 
 export default function CreateProject({ projectId, onSuccess, producers = [] }: CreateProjectProps) {
-  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<ProjectFormData>(defaultForm);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -69,7 +68,6 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    setMounted(true);
     if (projectId) {
       void loadProjectData();
     }
@@ -88,7 +86,6 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
           setForm({
             code: project.code,
             name: project.name,
-            description: project.description || "",
             client: project.client || "",
             productionHouse: project.productionHouse || "",
             producer: project.producerId || "",
@@ -332,8 +329,6 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
       setSaving(false);
     }
   };
-
-  if (!mounted) return null;
 
   if (loading) {
     return (
