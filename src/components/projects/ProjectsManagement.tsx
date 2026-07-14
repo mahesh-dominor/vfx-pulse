@@ -623,10 +623,6 @@ export default function ProjectsManagement({ canCreate, canUpdate, canDelete }: 
     [sortedProjects]
   );
 
-  if (!mounted) {
-    return null;
-  }
-
   return (
     <section className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
