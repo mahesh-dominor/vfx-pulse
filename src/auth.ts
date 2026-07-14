@@ -10,10 +10,10 @@ import {
 } from "@/features/auth/permissions";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // Do NOT pass secret: process.env.AUTH_SECRET here.
-  // Doing so captures the value at module-init / build time when env vars are
-  // not yet injected, storing undefined permanently. Auth.js v5 reads
-  // AUTH_SECRET lazily at request time when the env var is available.
+  // AUTH_SECRET must be set in Vercel env vars before the build runs.
+  // The build process on Vercel injects it, so capturing it here (at build time)
+  // is safe and required for Auth.js v5 to have a secret at runtime.
+  secret: process.env.AUTH_SECRET,
   trustHost: true,
 
   session: {
