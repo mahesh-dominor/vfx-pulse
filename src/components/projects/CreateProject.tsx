@@ -314,8 +314,8 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
               code: sequence.code,
               name: sequence.name,
               projectId: projId,
-              episodeId: sequence.episodeId || null,
-              description: sequence.description || "",
+              ...(sequence.episodeId && { episodeId: sequence.episodeId }),
+              ...(sequence.description && { description: sequence.description }),
               sortOrder: sequence.sortOrder,
             }),
           });
