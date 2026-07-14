@@ -287,7 +287,7 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
       // Save episodes
       for (const episode of episodes) {
         if (episode.id.startsWith("temp-")) {
-          await fetch("/api/episodes", {
+          const episodeRes = await fetch("/api/episodes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -296,24 +296,34 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
               sortOrder: episode.sortOrder,
             }),
           });
+
+          if (!episodeRes.ok) {
+            const data = await episodeRes.json();
+            throw new Error(`Failed to save episode ${episode.code}: ${data.error || episodeRes.statusText}`);
+          }
         }
       }
 
       // Save sequences
       for (const sequence of sequences) {
         if (sequence.id.startsWith("temp-")) {
-          await fetch("/api/sequences", {
+          const sequenceRes = await fetch("/api/sequences", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               code: sequence.code,
               name: sequence.name,
               projectId: projId,
-              episodeId: sequence.episodeId,
-              description: sequence.description,
+              episodeId: sequence.episodeId || null,
+              description: sequence.description || "",
               sortOrder: sequence.sortOrder,
             }),
           });
+
+          if (!sequenceRes.ok) {
+            const data = await sequenceRes.json();
+            throw new Error(`Failed to save sequence ${sequence.code}: ${data.error || sequenceRes.statusText}`);
+          }
         }
       }
 
