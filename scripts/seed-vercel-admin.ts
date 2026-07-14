@@ -25,6 +25,7 @@ async function ensureAdmin() {
   const existingAdmin = await prisma.user.findUnique({
     where: { email: "admin@vfxpulse.com" },
     select: {
+      id: true,
       email: true,
       username: true,
       isActive: true,
@@ -35,7 +36,6 @@ async function ensureAdmin() {
 
   if (!existingAdmin) {
     const hashedPassword = await bcrypt.hash("Admin@123", 12);
-
     await prisma.user.create({
       data: {
         name: "Administrator",
@@ -48,18 +48,38 @@ async function ensureAdmin() {
         isActive: true,
       },
     });
+    return { action: "created" };
+  }
 
+  // Reactivate if soft-deleted or deactivated, and ensure username is set
+  const needsRestore =
+    !existingAdmin.isActive ||
+    existingAdmin.deletedAt !== null ||
+    existingAdmin.username === null;
+
+  if (needsRestore) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: {
+        isActive: true,
+        deletedAt: null,
+        username: existingAdmin.username ?? "admin",
+      },
+    });
     return {
-      created: true,
+      action: "restored",
+      wasInactive: !existingAdmin.isActive,
+      wasDeleted: existingAdmin.deletedAt !== null,
+      hadNoUsername: existingAdmin.username === null,
+      passwordMatchesAdmin123: await bcrypt.compare("Admin@123", existingAdmin.password),
     };
   }
 
   return {
-    created: false,
+    action: "ok",
     email: existingAdmin.email,
     username: existingAdmin.username,
     isActive: existingAdmin.isActive,
-    deletedAt: existingAdmin.deletedAt,
     passwordMatchesAdmin123: await bcrypt.compare("Admin@123", existingAdmin.password),
   };
 }
