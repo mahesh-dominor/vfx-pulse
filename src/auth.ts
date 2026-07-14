@@ -8,12 +8,12 @@ import {
   isPublicAuthRoute,
   normalizeProtectedPath,
 } from "@/features/auth/permissions";
-import { canAccessPath } from "@/features/auth/rbac";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.AUTH_SECRET,
-  // Required on Vercel and other reverse-proxy/CDN deployments.
-  // Without this, Auth.js v5 rejects the host as untrusted → 500.
+  // Do NOT pass secret: process.env.AUTH_SECRET here.
+  // Doing so captures the value at module-init / build time when env vars are
+  // not yet injected, storing undefined permanently. Auth.js v5 reads
+  // AUTH_SECRET lazily at request time when the env var is available.
   trustHost: true,
 
   session: {
@@ -88,27 +88,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (auth?.user) {
           return NextResponse.redirect(new URL("/dashboard", request.url));
         }
-
         return true;
       }
 
-      if (!auth?.user?.role) {
+      // Require a valid session. Fine-grained RBAC is enforced in each route/page.
+      if (!auth?.user?.id || !auth?.user?.role) {
         return false;
       }
 
-      if (!auth.user.id) {
-        return false;
-      }
-
-      const normalizedPath = normalizeProtectedPath(pathname);
-
-      return canAccessPath(auth.user.id, auth.user.role, normalizedPath).then((allowed) => {
-        if (!allowed) {
-          return NextResponse.redirect(new URL("/dashboard", request.url));
-        }
-
-        return true;
-      });
+      return true;
     },
   },
 });
