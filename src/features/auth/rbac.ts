@@ -7,7 +7,24 @@ import type { UserPermissionItem } from "@/types/users";
 
 type PermissionAction = "view" | "create" | "update" | "delete";
 
+// Cache for resolved permissions within a single request to avoid multiple database calls
+// This helps with Vercel Postgres connection pool limits
+const permissionCacheKey = (userId: string, role: UserRole) => `${userId}:${role}`;
+let permissionCache: Map<string, UserPermissionItem[]> = new Map();
+
+// Reset cache at the start of each request (this would be called by middleware ideally)
+export function resetPermissionCache() {
+  permissionCache = new Map();
+}
+
 export async function getResolvedPermissions(userId: string, role: UserRole) {
+  const cacheKey = permissionCacheKey(userId, role);
+  
+  // Return cached result if available (same request)
+  if (permissionCache.has(cacheKey)) {
+    return permissionCache.get(cacheKey) || [];
+  }
+
   const permissionRows = await prisma.userPermission.findMany({
     where: {
       userId,
@@ -30,7 +47,12 @@ export async function getResolvedPermissions(userId: string, role: UserRole) {
     canDelete: permission.canDelete,
   }));
 
-  return mergePermissionMatrix(role, normalizedRows);
+  const resolved = mergePermissionMatrix(role, normalizedRows);
+  
+  // Cache the result for this request
+  permissionCache.set(cacheKey, resolved);
+  
+  return resolved;
 }
 
 export function getDefaultPermissions(role: UserRole) {
