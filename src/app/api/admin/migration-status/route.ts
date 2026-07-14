@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     // Only allow admin users to trigger migrations
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== "admin") {
+    if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
