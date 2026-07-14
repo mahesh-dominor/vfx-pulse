@@ -665,11 +665,11 @@ model Comment {
   deletedAt   DateTime?
 
   user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  sequence    Sequence? @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
-  shot        Shot? @relation(fields: [shotId], references: [id], onDelete: SetNull)
-  review      Review? @relation(fields: [reviewId], references: [id], onDelete: SetNull)
-  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sequence    Sequence? @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  shot        Shot? @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  review      Review? @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
