@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
-import { sequenceSchema } from "@/features/sequences/schemas/sequence.schema";
-import { sequenceService } from "@/services/sequence.service";
+import { episodeService } from "@/services/episode.service";
+import { episodeSchema } from "@/features/episodes/schemas/episode.schema";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -12,19 +12,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const projectId = searchParams.get("projectId") ?? undefined;
-    const episodeId = searchParams.get("episodeId") ?? undefined;
+    const projectId = searchParams.get("projectId");
 
-    let sequences = await sequenceService.listSequences(projectId);
-    
-    if (episodeId) {
-      sequences = sequences.filter((s: any) => s.episodeId === episodeId);
+    if (!projectId) {
+      return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
     }
 
-    return NextResponse.json(sequences);
+    const episodes = await episodeService.listEpisodes(projectId);
+    return NextResponse.json(episodes);
   } catch (error) {
-    console.error("GET /api/sequences error:", error);
-    return NextResponse.json({ error: "Failed to fetch sequences" }, { status: 500 });
+    console.error("GET /api/episodes error:", error);
+    return NextResponse.json({ error: "Failed to fetch episodes" }, { status: 500 });
   }
 }
 
@@ -37,20 +35,20 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const parsed = sequenceSchema.safeParse(body);
+    const parsed = episodeSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
 
-    const sequence = await sequenceService.createSequence(parsed.data);
-    return NextResponse.json(sequence, { status: 201 });
+    const episode = await episodeService.createEpisode(parsed.data);
+    return NextResponse.json(episode, { status: 201 });
   } catch (error) {
-    console.error("POST /api/sequences error:", error);
+    console.error("POST /api/episodes error:", error);
     if (error instanceof Error && error.message.includes("already exists")) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ error: "Failed to create sequence" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create episode" }, { status: 500 });
   }
 }
 
@@ -63,17 +61,21 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, ...updateData } = body;
+    const { id, code, sortOrder } = body;
 
     if (!id) {
-      return NextResponse.json({ error: "Missing sequence id" }, { status: 400 });
+      return NextResponse.json({ error: "Missing episode id" }, { status: 400 });
     }
 
-    const sequence = await sequenceService.updateSequence(id, updateData);
-    return NextResponse.json(sequence);
+    const episode = await episodeService.updateEpisode(id, {
+      ...(code && { code }),
+      ...(sortOrder !== undefined && { sortOrder }),
+    });
+
+    return NextResponse.json(episode);
   } catch (error) {
-    console.error("PUT /api/sequences error:", error);
-    return NextResponse.json({ error: "Failed to update sequence" }, { status: 500 });
+    console.error("PUT /api/episodes error:", error);
+    return NextResponse.json({ error: "Failed to update episode" }, { status: 500 });
   }
 }
 
@@ -89,13 +91,13 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Missing sequence id" }, { status: 400 });
+      return NextResponse.json({ error: "Missing episode id" }, { status: 400 });
     }
 
-    await sequenceService.softDeleteSequence(id);
+    await episodeService.softDeleteEpisode(id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/sequences error:", error);
-    return NextResponse.json({ error: "Failed to delete sequence" }, { status: 500 });
+    console.error("DELETE /api/episodes error:", error);
+    return NextResponse.json({ error: "Failed to delete episode" }, { status: 500 });
   }
 }

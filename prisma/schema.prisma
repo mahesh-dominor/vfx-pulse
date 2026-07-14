@@ -210,6 +210,7 @@ model Project {
   updatedAt    DateTime @updatedAt
   deletedAt    DateTime?
 
+  episodes  Episode[]
   sequences Sequence[]
   shots     Shot[]
   tasks     ShotTask[]
@@ -273,22 +274,49 @@ model ProjectPlanMilestone {
   @@index([stepCode])
 }
 
+model Episode {
+  id        String @id @default(cuid())
+
+  code      String
+  sortOrder Int @default(0)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sequences Sequence[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@unique([projectId, code])
+  @@index([projectId])
+}
+
 model Sequence {
   id        String @id @default(cuid())
 
   code      String
   name      String
+  description String?
+  sortOrder Int @default(0)
 
   projectId String
+  episodeId String?
+
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  episode   Episode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
 
   shots Shot[]
-
   comments Comment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+
+  @@unique([projectId, code])
+  @@index([projectId])
+  @@index([episodeId])
 }
 
 model Shot {
