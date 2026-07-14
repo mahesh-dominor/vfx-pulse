@@ -12,6 +12,9 @@ import { canAccessPath } from "@/features/auth/rbac";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
+  // Required on Vercel and other reverse-proxy/CDN deployments.
+  // Without this, Auth.js v5 rejects the host as untrusted → 500.
+  trustHost: true,
 
   session: {
     strategy: "jwt",
