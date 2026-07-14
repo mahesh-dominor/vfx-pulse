@@ -8,6 +8,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Prefer POSTGRES_URL (Vercel Postgres direct/non-pooled connection) for
+    // migrations. Falls back to DATABASE_URL for local dev and other envs.
+    url: process.env.POSTGRES_URL ? process.env.POSTGRES_URL : env("DATABASE_URL"),
   },
 });

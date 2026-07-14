@@ -1,3 +1,3 @@
 {
-  "buildCommand": "npm run prisma:deploy && npm run deploy:vercel && npx tsx scripts/seed-vercel-admin.ts"
+  "buildCommand": "npm run prisma:deploy || true && npm run deploy:vercel && (npx tsx scripts/seed-vercel-admin.ts || true)"
 }

@@ -15,16 +15,6 @@ export async function login(
   _: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  const hasAuthSecret = Boolean(process.env.AUTH_SECRET?.trim());
-  const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
-
-  if (!hasAuthSecret || !hasDatabaseUrl) {
-    return {
-      success: false,
-      error: "Login is temporarily unavailable due to server configuration.",
-    };
-  }
-
   const parsed = loginSchema.safeParse({
     identifier: formData.get("identifier"),
     password: formData.get("password"),
