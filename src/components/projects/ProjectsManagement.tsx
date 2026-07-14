@@ -266,6 +266,7 @@ function SortButton({
 }
 
 export default function ProjectsManagement({ canCreate, canUpdate, canDelete }: ProjectsManagementProps) {
+  const [mounted, setMounted] = useState(false);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [producers, setProducers] = useState<ProducerOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,6 +295,7 @@ export default function ProjectsManagement({ canCreate, canUpdate, canDelete }: 
   );
 
   useEffect(() => {
+    setMounted(true);
     void Promise.all([loadProjects(), loadMeta()]);
 
     const unsubscribe = subscribeDataSync(() => {
@@ -619,6 +621,10 @@ export default function ProjectsManagement({ canCreate, canUpdate, canDelete }: 
       })),
     [sortedProjects]
   );
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <section className="space-y-6">
