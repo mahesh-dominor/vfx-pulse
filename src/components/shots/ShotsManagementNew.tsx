@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Upload,
   UserRound,
   X,
 } from "lucide-react";
@@ -95,7 +96,6 @@ interface ShotForm {
   frameStart: string;
   frameEnd: string;
   artistId: string;
-  // Additional fields
   clientDeliveryName: string;
   complexity: string;
   clientPriority: string;
@@ -173,47 +173,6 @@ const statusOptions: ShotStatus[] = [
   "HOLD",
 ];
 
-const flagOptions = [
-  { value: "GREEN", label: "Ready", color: "bg-green-500" },
-  { value: "ORANGE", label: "Warning", color: "bg-orange-500" },
-  { value: "RED", label: "Blocked", color: "bg-red-500" },
-  { value: "BLUE", label: "On Hold", color: "bg-blue-500" },
-  { value: "PURPLE", label: "In Progress", color: "bg-purple-500" },
-];
-
-const additionalFields = [
-  { label: "Delivery Date - First Looks", key: "deliveryDateFirstLooks" },
-  { label: "Additional FX", key: "additionalFX" },
-  { label: "After June 2", key: "afterJune2" },
-  { label: "Allow Total", key: "allowTotal" },
-  { label: "All Color", key: "allColor" },
-  { label: "ASC SAT", key: "ascSAT" },
-  { label: "ASC SOP Offset", key: "ascSopOffset" },
-  { label: "ASC SOP Power", key: "ascSopPower" },
-  { label: "ASC SOP Slope", key: "ascSopSlope" },
-  { label: "Assigned Vendors", key: "assignedVendors" },
-  { label: "Assumptions", key: "assumptions" },
-  { label: "Bid ID", key: "bidId" },
-  { label: "Bid Notes", key: "bidNotes" },
-  { label: "Bid Total", key: "bidTotal" },
-  { label: "Bidding Shot Count", key: "biddingShotCount" },
-  { label: "Camera Info", key: "cameraInfo" },
-  { label: "CG Complete", key: "cgComplete" },
-  { label: "CG Supervisor Comments", key: "cgSupervisorComments" },
-  { label: "Character", key: "character" },
-  { label: "Cleanup Vendor", key: "cleanupVendor" },
-  { label: "Client Additional SOW", key: "clientAdditionalSOW" },
-  { label: "Client Delivery Name", key: "clientDeliveryName" },
-  { label: "Client Priority", key: "clientPriority" },
-  { label: "Client Prod Notes", key: "clientProdNotes" },
-  { label: "Client Report Notes", key: "clientReportNotes" },
-  { label: "Client SG ID", key: "clientSGId" },
-  { label: "Client SG Status", key: "clientSGStatus" },
-  { label: "Complexity", key: "complexity" },
-  { label: "Compositor", key: "compositor" },
-  { label: "Content Hub Pipeline Link", key: "contentHubPipelineLink" },
-];
-
 export default function ShotsManagementNew() {
   const [mounted, setMounted] = useState(false);
   const [shots, setShots] = useState<ShotItem[]>([]);
@@ -230,6 +189,11 @@ export default function ShotsManagementNew() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [selectedSequenceTags, setSelectedSequenceTags] = useState<string[]>([]);
+  const [selectedEpisodeTags, setSelectedEpisodeTags] = useState<string[]>([]);
+  const [bulkProjectId, setBulkProjectId] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -284,15 +248,26 @@ export default function ShotsManagementNew() {
 
   async function saveShot(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedSequenceTags[0]) {
+      setError("Please select a sequence");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
+      const shotData = {
+        ...form,
+        sequenceId: selectedSequenceTags[0],
+        episode: selectedEpisodeTags[0] || form.episode,
+      };
+
       const response = await fetch("/api/shots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(shotData),
       });
 
       if (!response.ok) {
@@ -303,10 +278,81 @@ export default function ShotsManagementNew() {
       setSuccess("Shot created successfully!");
       setForm(defaultForm);
       setShowForm(false);
+      setSelectedSequenceTags([]);
+      setSelectedEpisodeTags([]);
       await loadData();
       emitDataSync("shots");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save shot");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !bulkProjectId || !selectedSequenceTags[0]) {
+      setError("Select project, sequence, and CSV file");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      const headers = lines[0]?.split(",").map((h) => h.trim().toLowerCase()) || [];
+
+      if (!headers.includes("shotname")) {
+        throw new Error("CSV must include 'shotname' column");
+      }
+
+      let imported = 0;
+
+      for (const line of lines.slice(1)) {
+        const values = line.split(",").map((v) => v.trim());
+        const row: Record<string, string> = {};
+
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] || "";
+        });
+
+        if (!row.shotname) continue;
+
+        const shotData = {
+          projectId: bulkProjectId,
+          sequenceId: selectedSequenceTags[0],
+          shotName: row.shotname,
+          code: row.code || undefined,
+          episode: selectedEpisodeTags[0] || row.episode || undefined,
+          clientShotName: row.clientshotname || undefined,
+          scopeOfWork: row.scopeofwork || undefined,
+          status: (row.status as ShotStatus) || "NOT_STARTED",
+          priority: parseInt(row.priority || "3"),
+          dueDate: row.duedate ? new Date(row.duedate).toISOString() : undefined,
+        };
+
+        await fetch("/api/shots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shotData),
+        });
+
+        imported++;
+      }
+
+      setSuccess(`Successfully imported ${imported} shots!`);
+      setShowBulkImport(false);
+      setImportFile(null);
+      setBulkProjectId("");
+      setSelectedSequenceTags([]);
+      setSelectedEpisodeTags([]);
+      await loadData();
+      emitDataSync("shots");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed");
     } finally {
       setSaving(false);
     }
@@ -349,30 +395,41 @@ export default function ShotsManagementNew() {
 
   return (
     <section className="space-y-6">
-      {/* Header with Add Shot Button */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-100">
-            {shots.length} Shots {statusFilter !== "ALL" && `(${statusFilter})`}
-          </h2>
+        <h2 className="text-xl font-semibold text-slate-100">
+          {shots.length} Shots {statusFilter !== "ALL" && `(${statusFilter})`}
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBulkImport(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 hover:border-slate-600"
+          >
+            <Upload className="h-4 w-4" />
+            Bulk Import
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500"
+          >
+            <Plus className="h-4 w-4" />
+            Add Shot
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500"
-        >
-          <Plus className="h-4 w-4" />
-          Add Shot
-        </button>
       </div>
 
-      {/* Add Shot Form Modal */}
+      {/* Add Shot Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-[#111827] p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-100">Create a new Shot</h3>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setSelectedSequenceTags([]);
+                  setSelectedEpisodeTags([]);
+                }}
                 className="rounded-lg p-1 hover:bg-slate-700"
               >
                 <X className="h-5 w-5 text-slate-400" />
@@ -380,47 +437,26 @@ export default function ShotsManagementNew() {
             </div>
 
             <form onSubmit={saveShot} className="space-y-4">
-              {/* Core Fields */}
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">Shot Name</label>
+                  <label className="mb-2 block text-sm text-slate-300">Shot Name *</label>
                   <input
                     type="text"
                     value={form.shotName}
                     onChange={(e) => setForm({ ...form, shotName: e.target.value })}
                     placeholder="Enter shot name"
-                    className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                    className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">Scope of Work</label>
-                  <input
-                    type="text"
-                    value={form.scopeOfWork}
-                    onChange={(e) => setForm({ ...form, scopeOfWork: e.target.value })}
-                    placeholder="Describe scope"
-                    className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm text-slate-300">Task Template</label>
-                  <input
-                    type="text"
-                    value={form.taskTemplate}
-                    onChange={(e) => setForm({ ...form, taskTemplate: e.target.value })}
-                    placeholder="Select template"
-                    className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-slate-300">Project</label>
+                  <label className="mb-2 block text-sm text-slate-300">Project *</label>
                   <select
                     value={form.projectId}
                     onChange={(e) => {
-                      setForm({ ...form, projectId: e.target.value, sequenceId: "" });
+                      setForm({ ...form, projectId: e.target.value });
                       loadSequences(e.target.value);
+                      setSelectedSequenceTags([]);
                     }}
                     className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
                     required
@@ -433,215 +469,409 @@ export default function ShotsManagementNew() {
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">Sequence</label>
-                  <select
-                    value={form.sequenceId}
-                    onChange={(e) => setForm({ ...form, sequenceId: e.target.value })}
+                  <label className="mb-2 block text-sm text-slate-300">Scope of Work</label>
+                  <input
+                    type="text"
+                    value={form.scopeOfWork}
+                    onChange={(e) => setForm({ ...form, scopeOfWork: e.target.value })}
+                    placeholder="Describe scope"
                     className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
-                    required
-                  >
-                    <option value="">Select sequence</option>
-                    {sequences.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.code} - {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Task Template</label>
+                  <input
+                    type="text"
+                    value={form.taskTemplate}
+                    onChange={(e) => setForm({ ...form, taskTemplate: e.target.value })}
+                    placeholder="Enter template"
+                    className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
+                  />
                 </div>
               </div>
 
-              {/* More Fields Toggle */}
+              {/* Sequence Tagging */}
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Sequences (Click to tag) *</label>
+                <div className="flex flex-wrap gap-2 rounded-lg border border-slate-700 bg-[#0B1321] p-3">
+                  {sequences.length === 0 ? (
+                    <p className="text-xs text-slate-500">Select a project first</p>
+                  ) : (
+                    sequences.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedSequenceTags([s.id])}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                          selectedSequenceTags.includes(s.id)
+                            ? "bg-blue-600 text-white"
+                            : "border border-slate-600 text-slate-400 hover:border-slate-500"
+                        }`}
+                      >
+                        {s.code}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Episode Tagging */}
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Episodes (Press Enter to add tags)</label>
+                <div className="flex flex-wrap gap-2 rounded-lg border border-slate-700 bg-[#0B1321] p-3">
+                  <input
+                    type="text"
+                    placeholder="Type episode # and press Enter..."
+                    value={form.episode}
+                    onChange={(e) => setForm({ ...form, episode: e.target.value })}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const value = (e.target as HTMLInputElement).value;
+                        if (value && !selectedEpisodeTags.includes(value)) {
+                          setSelectedEpisodeTags([...selectedEpisodeTags, value]);
+                          setForm({ ...form, episode: "" });
+                        }
+                      }
+                    }}
+                    className="flex-1 min-w-40 border-0 bg-transparent px-2 py-1 text-sm text-slate-100 outline-none"
+                  />
+                  {selectedEpisodeTags.map((ep) => (
+                    <button
+                      key={ep}
+                      type="button"
+                      onClick={() => setSelectedEpisodeTags(selectedEpisodeTags.filter((e) => e !== ep))}
+                      className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white"
+                    >
+                      Ep {ep} <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* More Fields */}
               <button
                 type="button"
                 onClick={() => setShowMoreFields(!showMoreFields)}
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300"
+                className="flex items-center gap-2 text-sm text-slate-400"
               >
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${showMoreFields ? "rotate-180" : ""}`}
-                />
+                <ChevronDown className={`h-4 w-4 ${showMoreFields ? "rotate-180" : ""}`} />
                 More fields
               </button>
 
-              {/* Additional Fields */}
-              {showMoreFields && (
-                <div className="space-y-3 border-t border-slate-700 pt-4">
-                  <div className="max-h-60 overflow-y-auto">
-                    {additionalFields.map((field) => (
-                      <label key={field.key} className="flex items-center gap-2 py-2 text-sm text-slate-300">
-                        <input
-                          type="checkbox"
-                          onChange={(e) => {
-                            // Handle additional field visibility
-                          }}
-                          className="h-4 w-4 rounded border-slate-600 bg-[#0B1321]"
-                        />
-                        {field.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Form Actions */}
               <div className="flex gap-3 border-t border-slate-700 pt-4">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   {pendingCrudLabel(saving, "create", "Shot")}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-600"
+                  onClick={() => {
+                    setShowForm(false);
+                    setSelectedSequenceTags([]);
+                    setSelectedEpisodeTags([]);
+                  }}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300"
                 >
                   Cancel
                 </button>
-                {success && <p className="text-sm text-emerald-400">{success}</p>}
-                {error && <p className="text-sm text-rose-400">{error}</p>}
+                {error && <p className="text-xs text-rose-400">{error}</p>}
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Search and Filter Bar */}
+      {/* Bulk Import Modal */}
+      {showBulkImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-[#111827] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-100">Bulk Import Shots (CSV)</h3>
+              <button
+                onClick={() => {
+                  setShowBulkImport(false);
+                  setSelectedSequenceTags([]);
+                  setSelectedEpisodeTags([]);
+                  setBulkProjectId("");
+                }}
+                className="rounded-lg p-1 hover:bg-slate-700"
+              >
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-lg bg-[#0B1321] p-3 text-xs text-slate-400">
+                <p className="mb-1 font-mono">shotname,code,episode,status,priority</p>
+                <p className="font-mono">Example: Shot 001,SH001,1,NOT_STARTED,3</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Project *</label>
+                <select
+                  value={bulkProjectId}
+                  onChange={(e) => {
+                    setBulkProjectId(e.target.value);
+                    loadSequences(e.target.value);
+                    setSelectedSequenceTags([]);
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm"
+                >
+                  <option value="">Select project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Tag all with Sequence *</label>
+                <div className="flex flex-wrap gap-2 rounded-lg border border-slate-700 bg-[#0B1321] p-3">
+                  {sequences.length === 0 ? (
+                    <p className="text-xs text-slate-500">Select project first</p>
+                  ) : (
+                    sequences.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedSequenceTags([s.id])}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                          selectedSequenceTags.includes(s.id)
+                            ? "bg-blue-600 text-white"
+                            : "border border-slate-600 text-slate-400"
+                        }`}
+                      >
+                        {s.code}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Tag all with Episode</label>
+                <div className="flex flex-wrap gap-2 rounded-lg border border-slate-700 bg-[#0B1321] p-3">
+                  <input
+                    type="text"
+                    placeholder="Type episode # and press Enter..."
+                    value={form.episode}
+                    onChange={(e) => setForm({ ...form, episode: e.target.value })}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const value = (e.target as HTMLInputElement).value;
+                        if (value && !selectedEpisodeTags.includes(value)) {
+                          setSelectedEpisodeTags([...selectedEpisodeTags, value]);
+                          setForm({ ...form, episode: "" });
+                        }
+                      }
+                    }}
+                    className="flex-1 min-w-40 border-0 bg-transparent px-2 py-1 text-sm text-slate-100 outline-none"
+                  />
+                  {selectedEpisodeTags.map((ep) => (
+                    <button
+                      key={ep}
+                      type="button"
+                      onClick={() => setSelectedEpisodeTags(selectedEpisodeTags.filter((e) => e !== ep))}
+                      className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white"
+                    >
+                      Ep {ep} <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">CSV File *</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm file:bg-blue-600 file:text-white file:border-0 file:px-2 file:py-1 file:text-xs file:rounded"
+                />
+              </div>
+
+              <div className="flex gap-3 border-t border-slate-700 pt-4">
+                <button
+                  onClick={async () => {
+                    if (!importFile || !bulkProjectId || !selectedSequenceTags[0]) {
+                      setError("Select project, sequence, and CSV file");
+                      return;
+                    }
+
+                    setSaving(true);
+                    setError(null);
+                    setSuccess(null);
+
+                    try {
+                      const text = await importFile.text();
+                      const lines = text.split("\n").filter((l) => l.trim());
+                      const headers = lines[0]?.split(",").map((h) => h.trim().toLowerCase()) || [];
+
+                      if (!headers.includes("shotname")) {
+                        throw new Error("CSV must include 'shotname' column");
+                      }
+
+                      let imported = 0;
+
+                      for (const line of lines.slice(1)) {
+                        const values = line.split(",").map((v) => v.trim());
+                        const row: Record<string, string> = {};
+
+                        headers.forEach((header, idx) => {
+                          row[header] = values[idx] || "";
+                        });
+
+                        if (!row.shotname) continue;
+
+                        const shotData = {
+                          projectId: bulkProjectId,
+                          sequenceId: selectedSequenceTags[0],
+                          shotName: row.shotname,
+                          code: row.code || undefined,
+                          episode: selectedEpisodeTags[0] || row.episode || undefined,
+                          clientShotName: row.clientshotname || undefined,
+                          scopeOfWork: row.scopeofwork || undefined,
+                          status: (row.status as ShotStatus) || "NOT_STARTED",
+                          priority: parseInt(row.priority || "3"),
+                          dueDate: row.duedate ? new Date(row.duedate).toISOString() : undefined,
+                        };
+
+                        await fetch("/api/shots", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(shotData),
+                        });
+
+                        imported++;
+                      }
+
+                      setSuccess(`Successfully imported ${imported} shots!`);
+                      setShowBulkImport(false);
+                      setImportFile(null);
+                      setBulkProjectId("");
+                      setSelectedSequenceTags([]);
+                      setSelectedEpisodeTags([]);
+                      await loadData();
+                      emitDataSync("shots");
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Import failed");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={!importFile || saving || !bulkProjectId || !selectedSequenceTags[0]}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {saving ? "Importing..." : "Import Shots"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBulkImport(false);
+                    setSelectedSequenceTags([]);
+                    setSelectedEpisodeTags([]);
+                    setBulkProjectId("");
+                  }}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300"
+                >
+                  Cancel
+                </button>
+                {error && <p className="text-xs text-rose-400">{error}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Bar */}
       <DataPanel className="space-y-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+        <div className="flex gap-4">
           <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-800 bg-[#0B1321] px-3 py-2">
             <Search className="h-4 w-4 text-slate-500" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search code, name, sequence..."
-              className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
+              placeholder="Search shots..."
+              className="flex-1 bg-transparent text-sm text-slate-100 outline-none"
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-slate-800 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
-            >
-              <option value="ALL">All statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* View Mode Buttons */}
-          <div className="flex items-center gap-1 rounded-lg border border-slate-800 bg-[#0B1321] p-1">
-            <button
-              onClick={() => setViewMode("LIST")}
-              className={`rounded px-3 py-1.5 text-sm ${
-                viewMode === "LIST"
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-slate-300"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("GRID")}
-              className={`rounded px-3 py-1.5 text-sm ${
-                viewMode === "GRID"
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-slate-300"
-              }`}
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("KANBAN")}
-              className={`rounded px-3 py-1.5 text-sm ${
-                viewMode === "KANBAN"
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-slate-300"
-              }`}
-            >
-              <KanbanSquare className="h-4 w-4" />
-            </button>
-          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-800 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
+          >
+            <option value="ALL">All statuses</option>
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Shots Display */}
+        {/* Table */}
         {loading ? (
           <LoadingState text="Loading shots..." />
         ) : filteredShots.length === 0 ? (
-          <EmptyState text="No shots found. Create one to get started." />
-        ) : viewMode === "LIST" ? (
+          <EmptyState text="No shots found" />
+        ) : (
           <TableWrapper>
             <table className="min-w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-[#0B1321] text-xs uppercase tracking-wide text-slate-400">
+              <thead className="sticky top-0 bg-[#0B1321] text-xs uppercase text-slate-400">
                 <tr className="border-b border-slate-800">
-                  <th className="px-3 py-3 font-medium">Thumbnail</th>
-                  <th className="px-3 py-3 font-medium">Shot Name</th>
-                  <th className="px-3 py-3 font-medium">Client Name</th>
+                  <th className="px-3 py-3 font-medium">Shot</th>
                   <th className="px-3 py-3 font-medium">Sequence</th>
                   <th className="px-3 py-3 font-medium">Episode</th>
-                  <th className="px-3 py-3 font-medium">Shot</th>
-                  <th className="px-3 py-3 font-medium">Flag</th>
-                  <th className="px-3 py-3 font-medium">NetFX Due</th>
-                  <th className="px-3 py-3 font-medium">Vendor ETA</th>
-                  <th className="px-3 py-3 font-medium">Deliver For</th>
-                  <th className="px-3 py-3 font-medium">Prod Team Comments</th>
-                  <th className="px-3 py-3 font-medium">Vendor Comments</th>
-                  <th className="px-3 py-3 font-medium">Scope of Work</th>
-                  <th className="px-3 py-3 font-medium">Latest Client Note</th>
+                  <th className="px-3 py-3 font-medium">Code</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
+                  <th className="px-3 py-3 font-medium">Due Date</th>
+                  <th className="px-3 py-3 font-medium">Scope</th>
                   <th className="px-3 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {filteredShots.map((shot) => (
-                  <tr
-                    key={shot.id}
-                    className="bg-[#0B1321] transition hover:bg-white/[0.02]"
-                  >
-                    <td className="px-3 py-3">
-                      <div className="h-10 w-10 rounded bg-slate-700" />
-                    </td>
+                  <tr key={shot.id} className="bg-[#0B1321] hover:bg-white/[0.02]">
                     <td className="px-3 py-3 font-medium text-white">{shot.shotName}</td>
-                    <td className="px-3 py-3 text-slate-400">{shot.clientShotName || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400">{shot.sequence.code}</td>
-                    <td className="px-3 py-3 text-slate-400">{shot.episode || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400">{shot.code || "-"}</td>
                     <td className="px-3 py-3">
-                      {shot.flag && (
-                        <div className={`h-4 w-4 rounded-full ${flagColor(shot.flag)}`} />
+                      <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium">
+                        {shot.sequence.code}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {shot.episode ? (
+                        <span className="rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300">
+                          Ep {shot.episode}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-slate-400">
+                    <td className="px-3 py-3 text-slate-400">{shot.code || "-"}</td>
+                    <td className="px-3 py-3 text-xs">{shot.status}</td>
+                    <td className="px-3 py-3 text-slate-400 text-sm">
                       {shot.dueDate ? new Date(shot.dueDate).toLocaleDateString() : "-"}
                     </td>
-                    <td className="px-3 py-3 text-slate-400">
-                      {shot.vendorETA ? new Date(shot.vendorETA).toLocaleDateString() : "-"}
+                    <td className="px-3 py-3 truncate text-slate-400 max-w-xs text-sm">
+                      {shot.scopeOfWork || "-"}
                     </td>
-                    <td className="px-3 py-3 text-slate-400">{shot.deliverNextFor || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400 truncate">{shot.prodTeamComments || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400 truncate">{shot.vendorProdComments || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400 truncate">{shot.scopeOfWork || "-"}</td>
-                    <td className="px-3 py-3 text-slate-400 truncate">{shot.latestClientNote || "-"}</td>
                     <td className="px-3 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                        <button className="text-xs text-rose-400 hover:text-rose-300">Delete</button>
-                      </div>
+                      <button className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </TableWrapper>
-        ) : (
-          <div className="text-center py-8 text-slate-400">
-            {viewMode === "GRID" ? "Grid view coming soon" : "Kanban view coming soon"}
-          </div>
         )}
       </DataPanel>
     </section>
