@@ -40,45 +40,62 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        if (!credentials?.identifier || !credentials?.password) {
-          return null;
+        try {
+          if (!credentials?.identifier || !credentials?.password) {
+            console.warn("[auth] Missing credentials in authorize callback");
+            return null;
+          }
+
+          const identifier = credentials.identifier.toString();
+          const password = credentials.password.toString();
+
+          const user = await authService.validateCredentials(identifier, password);
+
+          if (!user) {
+            console.warn(`[auth] Invalid credentials for identifier: ${identifier}`);
+            return null;
+          }
+
+          console.log(`[auth] Authorized user: ${user.email} (${user.role})`);
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[auth] authorize() threw error:", error);
+          throw error;
         }
-
-        const identifier = credentials.identifier.toString();
-        const password = credentials.password.toString();
-
-        const user = await authService.validateCredentials(identifier, password);
-
-        if (!user) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
       },
     }),
   ],
 
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role;
+      try {
+        if (user) {
+          token.role = user.role;
+        }
+        return token;
+      } catch (error) {
+        console.error("[auth] jwt() callback threw error:", error);
+        throw error;
       }
-
-      return token;
     },
 
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub ?? "";
-        session.user.role = token.role as UserRole;
+      try {
+        if (session.user) {
+          session.user.id = token.sub ?? "";
+          session.user.role = token.role as UserRole;
+        }
+        return session;
+      } catch (error) {
+        console.error("[auth] session() callback threw error:", error);
+        throw error;
       }
-
-      return session;
     },
 
     authorized({ auth, request }) {
