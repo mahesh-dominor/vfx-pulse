@@ -307,17 +307,20 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
       // Save sequences
       for (const sequence of sequences) {
         if (sequence.id.startsWith("temp-")) {
+          const payload = {
+            code: sequence.code,
+            name: sequence.name,
+            projectId: projId,
+            ...(sequence.episodeId && { episodeId: sequence.episodeId }),
+            ...(sequence.description && { description: sequence.description }),
+            sortOrder: sequence.sortOrder,
+          };
+          console.log("Sequence payload:", JSON.stringify(payload, null, 2));
+          
           const sequenceRes = await fetch("/api/sequences", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              code: sequence.code,
-              name: sequence.name,
-              projectId: projId,
-              ...(sequence.episodeId && { episodeId: sequence.episodeId }),
-              ...(sequence.description && { description: sequence.description }),
-              sortOrder: sequence.sortOrder,
-            }),
+            body: JSON.stringify(payload),
           });
 
           if (!sequenceRes.ok) {
