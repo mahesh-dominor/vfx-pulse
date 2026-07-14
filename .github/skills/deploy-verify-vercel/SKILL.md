@@ -119,10 +119,10 @@ npm.cmd run smoke:users
 
 ## Troubleshooting
 
-### 500 on first load
-- Verify `DATABASE_URL` is set correctly in Vercel → Settings → Environment Variables.
-- Check that `prisma migrate deploy` ran; look for migration table errors in Function Logs.
-- Redeploy with `npm run prisma:deploy && npm run deploy:vercel` as the build command.
+### 500 at `/api/auth/callback/credentials`
+- **Most common cause on Vercel**: `trustHost: true` is missing from the NextAuth config in `src/auth.ts`. Vercel forwards requests via CDN with `x-forwarded-host` headers; Auth.js v5 rejects them as untrusted without this flag → always 500.
+- Confirm `src/auth.ts` has `trustHost: true` in the `NextAuth({...})` config.
+- Also confirm `AUTH_SECRET` is set in Vercel → Environment Variables.
 
 ### Login / session failures
 - Confirm `AUTH_URL` = `https://mrvfxpulse.com` (exact, no trailing slash).

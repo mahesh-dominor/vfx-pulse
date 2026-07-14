@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import ProjectsManagement from "@/components/projects/ProjectsManagement";
 import TopNav from "@/components/layout/TopNav";
-import { canAccessModuleAction } from "@/features/auth/rbac";
+import { canAccessModuleAction, canAccessMultipleModuleActions } from "@/features/auth/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +20,16 @@ export default async function ProjectsPage() {
     redirect("/dashboard");
   }
 
-  const [canCreate, canUpdate, canDelete] = await Promise.all([
-    canAccessModuleAction(session.user.id, session.user.role, "projects", "create"),
-    canAccessModuleAction(session.user.id, session.user.role, "projects", "update"),
-    canAccessModuleAction(session.user.id, session.user.role, "projects", "delete"),
-  ]);
+  // Batch permission checks to avoid database connection pool exhaustion
+  const [canCreate, canUpdate, canDelete] = await canAccessMultipleModuleActions(
+    session.user.id,
+    session.user.role,
+    [
+      { module: "projects", action: "create" },
+      { module: "projects", action: "update" },
+      { module: "projects", action: "delete" },
+    ]
+  );
 
   return (
     <main className="min-h-screen bg-[#070B14] p-8">
