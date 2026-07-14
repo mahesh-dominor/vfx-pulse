@@ -4,11 +4,18 @@ export type DashboardKpis = {
   totalShots: number;
   openShots: number;
   completedShots: number;
+  clientReviewShots: number;
+  overdueShots: number;
+  upcomingDeliveries: number;
+  highRiskProjects: number;
   artistCount: number;
+  artistUtilizationPercent: number;
   taskOpen: number;
   taskInProgress: number;
   taskCompleted: number;
   timeLogHours: number;
+  burnRateHoursPerDay: number;
+  deliveryForecastDays: number;
   productionProgressPercent: number;
 
   artistsLoggedIn: number;

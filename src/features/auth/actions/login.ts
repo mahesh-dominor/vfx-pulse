@@ -15,8 +15,18 @@ export async function login(
   _: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  const hasAuthSecret = Boolean(process.env.AUTH_SECRET?.trim());
+  const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+
+  if (!hasAuthSecret || !hasDatabaseUrl) {
+    return {
+      success: false,
+      error: "Login is temporarily unavailable due to server configuration.",
+    };
+  }
+
   const parsed = loginSchema.safeParse({
-    email: formData.get("email"),
+    identifier: formData.get("identifier"),
     password: formData.get("password"),
   });
 
@@ -29,7 +39,7 @@ export async function login(
 
   try {
     await signIn("credentials", {
-      email: parsed.data.email,
+      identifier: parsed.data.identifier,
       password: parsed.data.password,
       redirectTo: DEFAULT_AFTER_LOGIN,
     });
@@ -41,7 +51,7 @@ export async function login(
     if (error instanceof AuthError) {
       return {
         success: false,
-        error: "Invalid email or password",
+        error: "Invalid email/username or password",
       };
     }
 

@@ -10,11 +10,16 @@ export type AuthenticatedUser = {
 	id: string;
 	name: string;
 	email: string;
+	username: string | null;
 	role: UserRole;
 };
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
+}
+
+function normalizeUsername(username: string): string {
+	return username.trim().toLowerCase();
 }
 
 async function findActiveUserByEmail(email: string) {
@@ -26,6 +31,30 @@ async function findActiveUserByEmail(email: string) {
 			id: true,
 			name: true,
 			email: true,
+			username: true,
+			password: true,
+			role: true,
+			isActive: true,
+			deletedAt: true,
+		},
+	});
+}
+
+async function findActiveUserByIdentifier(identifier: string) {
+	const normalizedIdentifier = identifier.trim();
+
+	return prisma.user.findFirst({
+		where: {
+			OR: [
+				{ email: normalizeEmail(normalizedIdentifier) },
+				{ username: normalizeUsername(normalizedIdentifier) },
+			],
+		},
+		select: {
+			id: true,
+			name: true,
+			email: true,
+			username: true,
 			password: true,
 			role: true,
 			isActive: true,
@@ -35,10 +64,10 @@ async function findActiveUserByEmail(email: string) {
 }
 
 async function validateCredentials(
-	email: string,
+	identifier: string,
 	password: string
 ): Promise<AuthenticatedUser | null> {
-	const user = await findActiveUserByEmail(email);
+	const user = await findActiveUserByIdentifier(identifier);
 
 	if (!user || !user.isActive || user.deletedAt !== null) {
 		return null;
@@ -63,6 +92,7 @@ async function validateCredentials(
 		id: user.id,
 		name: user.name,
 		email: user.email,
+		username: user.username,
 		role: user.role,
 	};
 }

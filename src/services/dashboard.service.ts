@@ -27,6 +27,10 @@ function toTimeString(date: Date): string {
 export const dashboardService = {
   async getDashboardData(options: DashboardOptions): Promise<DashboardData> {
     const today = getStartOfToday();
+    const nextTwoWeeks = new Date(today);
+    nextTwoWeeks.setDate(nextTwoWeeks.getDate() + 14);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 6);
 
     const [
       totalProjects,
@@ -34,11 +38,19 @@ export const dashboardService = {
       totalShots,
       openShots,
       completedShots,
+      clientReviewShots,
+      overdueShots,
+      upcomingDeliveries,
+      delayedProjects,
+      riskyProjectReferences,
       artistCount,
+      pendingTaskMinutesAgg,
+      inProgressTaskMinutesAgg,
       taskOpen,
       taskInProgress,
       taskCompleted,
       timeLogAggregate,
+      burnRateAggregate,
       artistsLoggedIn,
       updatesToday,
       shotsUpdated,
@@ -52,11 +64,74 @@ export const dashboardService = {
         prisma.shot.count({ where: { deletedAt: null } }),
         prisma.shot.count({ where: { deletedAt: null, status: { in: ["NOT_STARTED", "WIP", "INTERNAL_REVIEW", "CLIENT_REVIEW", "HOLD"] } } }),
         prisma.shot.count({ where: { deletedAt: null, status: { in: ["APPROVED", "DELIVERED"] } } }),
+        prisma.shot.count({ where: { deletedAt: null, status: "CLIENT_REVIEW" } }),
+        prisma.shot.count({
+          where: {
+            deletedAt: null,
+            dueDate: { lt: new Date() },
+            status: { notIn: ["APPROVED", "DELIVERED"] },
+          },
+        }),
+        prisma.project.count({
+          where: {
+            deletedAt: null,
+            status: { in: ["ACTIVE", "ON_HOLD"] },
+            deliveryDate: {
+              gte: today,
+              lte: nextTwoWeeks,
+            },
+          },
+        }),
+        prisma.project.count({
+          where: {
+            deletedAt: null,
+            status: { in: ["ACTIVE", "ON_HOLD"] },
+            deliveryDate: { lt: new Date() },
+          },
+        }),
+        prisma.shot.findMany({
+          where: {
+            deletedAt: null,
+            dueDate: { lt: new Date() },
+            status: { notIn: ["APPROVED", "DELIVERED"] },
+          },
+          select: {
+            projectId: true,
+          },
+          distinct: ["projectId"],
+        }),
         prisma.artist.count({ where: { deletedAt: null, isActive: true } }),
+        prisma.shotTask.aggregate({
+          where: {
+            deletedAt: null,
+            status: { not: "COMPLETED" },
+          },
+          _sum: {
+            estimatedMinutes: true,
+          },
+        }),
+        prisma.shotTask.aggregate({
+          where: {
+            deletedAt: null,
+            status: "IN_PROGRESS",
+          },
+          _sum: {
+            estimatedMinutes: true,
+          },
+        }),
         prisma.shotTask.count({ where: { deletedAt: null, status: { in: ["NOT_STARTED", "ON_HOLD", "REVIEW"] } } }),
         prisma.shotTask.count({ where: { deletedAt: null, status: "IN_PROGRESS" } }),
         prisma.shotTask.count({ where: { deletedAt: null, status: "COMPLETED" } }),
         prisma.timeLog.aggregate({ where: { deletedAt: null }, _sum: { minutesSpent: true } }),
+        prisma.timeLog.aggregate({
+          where: {
+            deletedAt: null,
+            logDate: { gte: weekStart },
+          },
+          _sum: {
+            minutesSpent: true,
+          },
+        }),
         prisma.user.count({
           where: {
             role: "ARTIST",
@@ -132,6 +207,13 @@ export const dashboardService = {
 
     const hoursLogged = updatesToday.reduce((sum, item) => sum + item.hoursWorked, 0);
     const productionProgressPercent = totalShots === 0 ? 0 : (completedShots / totalShots) * 100;
+    const pendingTaskMinutes = pendingTaskMinutesAgg._sum.estimatedMinutes ?? 0;
+    const inProgressTaskMinutes = inProgressTaskMinutesAgg._sum.estimatedMinutes ?? 0;
+    const dailyCapacityMinutes = Math.max(artistCount * 8 * 60, 1);
+    const artistUtilizationPercent = (inProgressTaskMinutes / dailyCapacityMinutes) * 100;
+    const deliveryForecastDays = Math.ceil(pendingTaskMinutes / dailyCapacityMinutes);
+    const burnRateHoursPerDay = ((burnRateAggregate._sum.minutesSpent ?? 0) / 60) / 7;
+    const highRiskProjects = Math.max(delayedProjects, riskyProjectReferences.length);
 
     const notifications = [
       ...missingArtists.slice(0, 3).map((artist) => ({
@@ -165,11 +247,18 @@ export const dashboardService = {
         totalShots,
         openShots,
         completedShots,
+        clientReviewShots,
+        overdueShots,
+        upcomingDeliveries,
+        highRiskProjects,
         artistCount,
+        artistUtilizationPercent,
         taskOpen,
         taskInProgress,
         taskCompleted,
         timeLogHours: (timeLogAggregate._sum.minutesSpent ?? 0) / 60,
+        burnRateHoursPerDay,
+        deliveryForecastDays,
         productionProgressPercent,
 
         artistsLoggedIn,

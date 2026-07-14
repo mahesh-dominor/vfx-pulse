@@ -5,13 +5,14 @@ import { usersQuerySchema } from "@/features/users/schemas/users-query.schema";
 import { canViewUsers } from "@/features/users/permissions";
 import { userService } from "@/services/user.service";
 import type { UsersPageData } from "@/types/users";
+import type { TeamListItem, UserListItem } from "@/types/users";
 
 export async function getUsersPageData(
   input?: Partial<{ search: string; role: string; includeInactive: boolean }>
 ): Promise<UsersPageData> {
   const session = await auth();
 
-  if (!session?.user?.role || !canViewUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canViewUsers(session.user.id, session.user.role))) {
     throw new Error("Forbidden");
   }
 
@@ -21,10 +22,17 @@ export async function getUsersPageData(
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid user query");
   }
 
-  const [users, teams] = await Promise.all([
-    userService.listUsers(parsed.data),
-    userService.listTeams(),
-  ]);
+  let users: UserListItem[] = [];
+  let teams: TeamListItem[] = [];
+
+  try {
+    [users, teams] = await Promise.all([
+      userService.listUsers(parsed.data),
+      userService.listTeams(),
+    ]);
+  } catch (error) {
+    console.error("getUsersPageData error:", error);
+  }
 
   return {
     users,

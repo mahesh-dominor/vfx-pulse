@@ -14,7 +14,12 @@ export async function GET() {
     return NextResponse.json(settings);
   } catch (error) {
     console.error("GET /api/settings error:", error);
-    return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
+    return NextResponse.json({
+      studio: [],
+      departments: [],
+      statuses: [],
+      priorities: [],
+    });
   }
 }
 

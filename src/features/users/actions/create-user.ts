@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { canEditUsers } from "@/features/users/permissions";
+import { canCreateUsers } from "@/features/users/permissions";
 import { createUserSchema } from "@/features/users/schemas/create-user.schema";
 import { userService } from "@/services/user.service";
 
@@ -38,7 +38,7 @@ export async function createUserAction(
 ): Promise<CreateUserState> {
   const session = await auth();
 
-  if (!session?.user?.role || !canEditUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canCreateUsers(session.user.id, session.user.role))) {
     return {
       success: false,
       error: "You do not have permission to create users",
@@ -48,8 +48,11 @@ export async function createUserAction(
   const parsed = createUserSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
+    username: formData.get("username"),
     password: formData.get("password"),
     role: formData.get("role"),
+    designation: formData.get("designation"),
+    department: formData.get("department"),
     isActive: formData.get("isActive") === "on",
     teamIds: getAllTeamIds(formData),
     permissionOverrides: parsePermissionOverrides(formData.get("permissionOverrides")),

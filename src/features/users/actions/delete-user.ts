@@ -9,7 +9,7 @@ import { userService } from "@/services/user.service";
 export async function deleteUserAction(userId: string): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
 
-  if (!session?.user?.role || !canDeleteUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canDeleteUsers(session.user.id, session.user.role))) {
     return {
       success: false,
       error: "You do not have permission to delete users",

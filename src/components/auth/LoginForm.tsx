@@ -29,10 +29,10 @@ export default function LoginForm() {
 
         <form action={formAction} className="space-y-4">
           <Input
-            name="email"
-            type="email"
-            placeholder="Email"
-            autoComplete="email"
+            name="identifier"
+            type="text"
+            placeholder="Email or username"
+            autoComplete="username"
             className="border-slate-700 bg-[#0B1321] text-slate-100 placeholder:text-slate-500 focus:border-blue-500"
             required
           />

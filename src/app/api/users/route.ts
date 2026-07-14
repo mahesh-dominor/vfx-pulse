@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { canEditUsers, canViewUsers } from "@/features/users/permissions";
+import { canCreateUsers, canViewUsers } from "@/features/users/permissions";
 import { createUserSchema } from "@/features/users/schemas/create-user.schema";
 import { usersQuerySchema } from "@/features/users/schemas/users-query.schema";
 import { userService } from "@/services/user.service";
@@ -17,7 +17,7 @@ function parsePermissionOverrides(input: unknown) {
 export async function GET(request: Request) {
   const session = await auth();
 
-  if (!session?.user?.role || !canViewUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canViewUsers(session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
 
-  if (!session?.user?.role || !canEditUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canCreateUsers(session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -62,8 +62,11 @@ export async function POST(request: Request) {
   const parsed = createUserSchema.safeParse({
     name: body.name,
     email: body.email,
+    username: body.username,
     password: body.password,
     role: body.role,
+    designation: body.designation,
+    department: body.department,
     isActive: body.isActive,
     teamIds: Array.isArray(body.teamIds) ? body.teamIds : [],
     permissionOverrides: parsePermissionOverrides(body.permissionOverrides),
@@ -80,9 +83,14 @@ export async function POST(request: Request) {
     const user = await userService.createUser(parsed.data);
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
+    const status =
+      typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
+        ? error.status
+        : 500;
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to create user" },
-      { status: 500 }
+      { status }
     );
   }
 }

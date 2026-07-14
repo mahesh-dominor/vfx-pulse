@@ -8,6 +8,8 @@ out/
 # Environment
 .env
 .env.local
+.env*.local
+.env.vercel.*
 
 # Prisma
 generated/
@@ -27,3 +29,4 @@ Thumbs.db
 # Build
 dist/
 *.tsbuildinfo
+.vercel

@@ -34,8 +34,11 @@ async function main() {
       data: {
         name: "Administrator",
         email: "admin@vfxpulse.com",
+        username: "admin",
         password: hashedPassword,
         role: UserRole.ADMIN,
+        designation: "SUPERVISOR",
+        department: "PRODUCTION",
         isActive: true,
       },
     });
@@ -63,8 +66,11 @@ async function main() {
         data: {
           name: artist.name,
           email: artist.email,
+          username: artist.email.split("@")[0],
           password: hashedPassword,
           role: UserRole.ARTIST,
+          designation: "JUNIOR_ARTIST",
+          department: "PRODUCTION",
           isActive: true,
         },
       });

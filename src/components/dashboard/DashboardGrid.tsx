@@ -1,4 +1,4 @@
-import { Users, ClipboardCheck, Clock3, Film, AlertTriangle } from "lucide-react";
+import { Users, ClipboardCheck, Clock3, Film, AlertTriangle, CalendarClock, TriangleAlert, Gauge } from "lucide-react";
 import StatCard from "@/components/cards/StatCard";
 import ActivityTimeline from "./ActivityTimeline";
 import AssignedShotsCard from "./AssignedShotsCard";
@@ -35,6 +35,30 @@ export default function DashboardGrid({ data }: DashboardGridProps) {
         />
 
         <StatCard
+          title="Client Review"
+          value={kpis.clientReviewShots.toString()}
+          subtitle="Shots awaiting client feedback"
+          icon={<ClipboardCheck className="text-white" size={28} />}
+          iconBg="bg-violet-600"
+        />
+
+        <StatCard
+          title="Overdue Shots"
+          value={kpis.overdueShots.toString()}
+          subtitle="Missed internal due dates"
+          icon={<TriangleAlert className="text-white" size={28} />}
+          iconBg="bg-red-600"
+        />
+
+        <StatCard
+          title="Upcoming Deliveries"
+          value={kpis.upcomingDeliveries.toString()}
+          subtitle="Projects due in next 14 days"
+          icon={<CalendarClock className="text-white" size={28} />}
+          iconBg="bg-cyan-600"
+        />
+
+        <StatCard
           title="Artists"
           value={kpis.artistCount.toString()}
           subtitle={`Logged in today ${kpis.artistsLoggedIn}`}
@@ -53,9 +77,25 @@ export default function DashboardGrid({ data }: DashboardGridProps) {
         <StatCard
           title="Production Progress"
           value={`${kpis.productionProgressPercent.toFixed(1)}%`}
-          subtitle={`Time Logs ${kpis.timeLogHours.toFixed(1)}h`}
+          subtitle={`Burn ${kpis.burnRateHoursPerDay.toFixed(1)}h/day`}
           icon={<Clock3 className="text-white" size={28} />}
           iconBg="bg-emerald-600"
+        />
+
+        <StatCard
+          title="Artist Utilization"
+          value={`${kpis.artistUtilizationPercent.toFixed(0)}%`}
+          subtitle={`Forecast finish ${kpis.deliveryForecastDays} days`}
+          icon={<Gauge className="text-white" size={28} />}
+          iconBg="bg-fuchsia-600"
+        />
+
+        <StatCard
+          title="High-Risk Projects"
+          value={kpis.highRiskProjects.toString()}
+          subtitle="Overdue or at delivery risk"
+          icon={<AlertTriangle className="text-white" size={28} />}
+          iconBg="bg-rose-700"
         />
 
         <StatCard

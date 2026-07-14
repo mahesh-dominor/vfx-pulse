@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canAccessModuleAction } from "@/features/auth/rbac";
 import { projectService } from "@/services/project.service";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,8 +13,12 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session.user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!(await canAccessModuleAction(session.user.id, session.user.role, "projects", "update"))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;

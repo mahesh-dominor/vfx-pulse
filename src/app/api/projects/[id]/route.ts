@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canAccessModuleAction } from "@/features/auth/rbac";
 import { projectSchema } from "@/features/projects/schemas/project.schema";
 import { projectService } from "@/services/project.service";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,8 +14,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
 
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session.user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!(await canAccessModuleAction(session.user.id, session.user.role, "projects", "update"))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -43,8 +48,12 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const session = await auth();
 
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session.user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!(await canAccessModuleAction(session.user.id, session.user.role, "projects", "delete"))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;

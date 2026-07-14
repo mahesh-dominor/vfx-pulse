@@ -5,8 +5,9 @@ import TopNav from "@/components/layout/TopNav";
 import UsersManagement from "@/components/users/UsersManagement";
 import { getUsersPageData } from "@/features/users/actions/get-users-page-data";
 import {
+  canCreateUsers,
   canDeleteUsers,
-  canEditUsers,
+  canUpdateUsers,
   canViewUsers,
 } from "@/features/users/permissions";
 
@@ -17,11 +18,14 @@ export default async function UsersPage() {
     redirect("/login");
   }
 
-  if (!canViewUsers(session.user.role)) {
+  if (!(await canViewUsers(session.user.id, session.user.role))) {
     redirect("/dashboard");
   }
 
   const data = await getUsersPageData();
+  const canCreate = await canCreateUsers(session.user.id, session.user.role);
+  const canUpdate = await canUpdateUsers(session.user.id, session.user.role);
+  const canDelete = await canDeleteUsers(session.user.id, session.user.role);
 
   return (
     <main className="min-h-screen bg-[#070B14] p-8">
@@ -36,8 +40,9 @@ export default async function UsersPage() {
       <UsersManagement
         users={data.users}
         teams={data.teams}
-        canEdit={canEditUsers(session.user.role)}
-        canDelete={canDeleteUsers(session.user.role)}
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
       />
     </main>
   );

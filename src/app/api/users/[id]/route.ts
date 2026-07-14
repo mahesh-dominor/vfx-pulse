@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   canDeleteUsers,
-  canEditUsers,
+  canUpdateUsers,
   canViewUsers,
 } from "@/features/users/permissions";
 import { updateUserSchema } from "@/features/users/schemas/update-user.schema";
@@ -23,7 +23,7 @@ export async function GET(
 ) {
   const session = await auth();
 
-  if (!session?.user?.role || !canViewUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canViewUsers(session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -45,7 +45,7 @@ export async function PATCH(
 ) {
   const session = await auth();
 
-  if (!session?.user?.role || !canEditUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canUpdateUsers(session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -55,7 +55,10 @@ export async function PATCH(
   const parsed = updateUserSchema.safeParse({
     name: body.name,
     email: body.email,
+    username: body.username,
     role: body.role,
+    designation: body.designation,
+    department: body.department,
     isActive: body.isActive,
     teamIds: Array.isArray(body.teamIds) ? body.teamIds : [],
     permissionOverrides: parsePermissionOverrides(body.permissionOverrides),
@@ -72,9 +75,14 @@ export async function PATCH(
     const user = await userService.updateUser(id, parsed.data);
     return NextResponse.json(user);
   } catch (error) {
+    const status =
+      typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
+        ? error.status
+        : 500;
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update user" },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -85,7 +93,7 @@ export async function DELETE(
 ) {
   const session = await auth();
 
-  if (!session?.user?.role || !canDeleteUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canDeleteUsers(session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -95,9 +103,14 @@ export async function DELETE(
     await userService.softDeleteUser(id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    const status =
+      typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
+        ? error.status
+        : 500;
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to delete user" },
-      { status: 500 }
+      { status }
     );
   }
 }

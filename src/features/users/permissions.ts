@@ -1,23 +1,19 @@
 import type { UserRole } from "@prisma/client";
 
-import {
-  USER_DELETE_ROLES,
-  USER_EDIT_ROLES,
-  USER_MANAGEMENT_ROLES,
-} from "@/constants/users";
+import { canAccessModuleAction } from "@/features/auth/rbac";
 
-const viewRoles = new Set<UserRole>(USER_MANAGEMENT_ROLES);
-const editRoles = new Set<UserRole>(USER_EDIT_ROLES);
-const deleteRoles = new Set<UserRole>(USER_DELETE_ROLES);
-
-export function canViewUsers(role: UserRole): boolean {
-  return viewRoles.has(role);
+export async function canViewUsers(userId: string, role: UserRole): Promise<boolean> {
+  return canAccessModuleAction(userId, role, "users", "view");
 }
 
-export function canEditUsers(role: UserRole): boolean {
-  return editRoles.has(role);
+export async function canCreateUsers(userId: string, role: UserRole): Promise<boolean> {
+  return canAccessModuleAction(userId, role, "users", "create");
 }
 
-export function canDeleteUsers(role: UserRole): boolean {
-  return deleteRoles.has(role);
+export async function canUpdateUsers(userId: string, role: UserRole): Promise<boolean> {
+  return canAccessModuleAction(userId, role, "users", "update");
+}
+
+export async function canDeleteUsers(userId: string, role: UserRole): Promise<boolean> {
+  return canAccessModuleAction(userId, role, "users", "delete");
 }

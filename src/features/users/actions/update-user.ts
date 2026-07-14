@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { canEditUsers } from "@/features/users/permissions";
+import { canUpdateUsers } from "@/features/users/permissions";
 import { updateUserSchema } from "@/features/users/schemas/update-user.schema";
 import { userService } from "@/services/user.service";
 
@@ -39,7 +39,7 @@ export async function updateUserAction(
 ): Promise<UpdateUserState> {
   const session = await auth();
 
-  if (!session?.user?.role || !canEditUsers(session.user.role)) {
+  if (!session?.user?.role || !session.user.id || !(await canUpdateUsers(session.user.id, session.user.role))) {
     return {
       success: false,
       error: "You do not have permission to update users",
@@ -49,7 +49,10 @@ export async function updateUserAction(
   const parsed = updateUserSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
+    username: formData.get("username"),
     role: formData.get("role"),
+    designation: formData.get("designation"),
+    department: formData.get("department"),
     isActive: formData.get("isActive") === "on",
     teamIds: getAllTeamIds(formData),
     permissionOverrides: parsePermissionOverrides(formData.get("permissionOverrides")),

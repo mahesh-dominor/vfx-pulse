@@ -5,9 +5,10 @@ import { NextResponse } from "next/server";
 
 import { authService } from "@/services/auth.service";
 import {
-  canAccessPath,
   isPublicAuthRoute,
+  normalizeProtectedPath,
 } from "@/features/auth/permissions";
+import { canAccessPath } from "@/features/auth/rbac";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -25,9 +26,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Credentials",
 
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
+        identifier: {
+          label: "Email or Username",
+          type: "text",
         },
         password: {
           label: "Password",
@@ -36,14 +37,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.identifier || !credentials?.password) {
           return null;
         }
 
-        const email = credentials.email.toString();
+        const identifier = credentials.identifier.toString();
         const password = credentials.password.toString();
 
-        const user = await authService.validateCredentials(email, password);
+        const user = await authService.validateCredentials(identifier, password);
 
         if (!user) {
           return null;
@@ -92,11 +93,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return false;
       }
 
-      if (!canAccessPath(auth.user.role, pathname)) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+      if (!auth.user.id) {
+        return false;
       }
 
-      return true;
+      const normalizedPath = normalizeProtectedPath(pathname);
+
+      return canAccessPath(auth.user.id, auth.user.role, normalizedPath).then((allowed) => {
+        if (!allowed) {
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+
+        return true;
+      });
     },
   },
 });
