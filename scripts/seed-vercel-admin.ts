@@ -4,12 +4,17 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, UserRole } from "@prisma/client";
 
+// Load local production env file if present (local runs). On Vercel,
+// DATABASE_URL is already injected by the platform so this is a no-op.
 dotenv.config({ path: ".env.vercel.production" });
 
 const connectionString = process.env.DATABASE_URL;
 
-if (!connectionString) {
-  throw new Error("Missing production DATABASE_URL");
+if (!connectionString || connectionString.trim() === "") {
+  throw new Error(
+    "Missing DATABASE_URL. Add it to .env.vercel.production for local runs, " +
+    "or ensure it is set as a Vercel environment variable."
+  );
 }
 
 const pool = new Pool({ connectionString });
