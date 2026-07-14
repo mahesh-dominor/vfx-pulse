@@ -9,7 +9,6 @@ const pool = new Pool({
   max: 2, // Minimal pool size for Vercel Postgres limits
   idleTimeoutMillis: 10000, // Close idle connections quickly (10 seconds)
   connectionTimeoutMillis: 5000, // Shorter timeout
-  reapIntervalMillis: 1000, // Check for idle connections every second
 });
 
 const adapter = new PrismaPg(pool);

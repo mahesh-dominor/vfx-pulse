@@ -297,6 +297,11 @@ model Shot {
   code     String?
   shotName String
   description String?
+  clientShotName String?
+  episode String?
+  clientDeliveryName String?
+  scopeOfWork String?
+  taskTemplate String?
 
   status ShotStatus @default(NOT_STARTED)
 
@@ -311,8 +316,68 @@ model Shot {
   estimatedHours Float?
 
   notes String?
-
   dueDate DateTime?
+
+  // Vendor and delivery tracking
+  vendorETA DateTime?
+  deliverNextFor String?
+  assignedVendors String?
+
+  // Production team comments
+  prodTeamComments String?
+  vendorProdComments String?
+  clientAdditionalNotes String?
+  latestClientNote String?
+
+  // Status flags and tracking
+  flag String?
+  complexity String?
+  clientPriority Int?
+
+  // CG and technical metadata
+  cgComplete Boolean @default(false)
+  cgSupervisorComments String?
+  cameraInfo String?
+  character String?
+  compositor String?
+  cleanupVendor String?
+
+  // VFX specifications
+  additionalFX String?
+  ascSAT Decimal?
+  ascSopOffset Decimal?
+  ascSopPower Decimal?
+  ascSopSlope Decimal?
+  allColor Boolean @default(false)
+
+  // Bidding and estimation
+  bidId String?
+  bidNotes String?
+  bidProjId String?
+  bidTotal Decimal?
+  biddingShotCount Int?
+
+  // Delivery dates and milestones
+  deliveryDateFirstLooks DateTime?
+  clientWIPDate DateTime?
+  clientVersionsToFinal Int?
+  afterJune2 Boolean @default(false)
+  allowTotal Boolean @default(false)
+
+  // Client metadata
+  clientSGId String?
+  clientSGStatus String?
+  clientProdNotes String?
+  clientReportNotes String?
+  clientAdditionalSOW String?
+  clientAdditionalSOWDate DateTime?
+
+  // Content Hub integration
+  contentHubScheduledDelivery DateTime?
+  contentHubPipelineLink String?
+
+  // Assets and assumptions
+  assumptions String?
 
   projectId  String
   sequenceId String
@@ -331,6 +396,11 @@ model Shot {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+
+  @@index([projectId, sequenceId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([flag])
 }
 
 model Artist {
