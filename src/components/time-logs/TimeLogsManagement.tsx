@@ -132,6 +132,16 @@ export default function TimeLogsManagement() {
           fetch("/api/time-logs/dashboard?period=weekly", { cache: "no-store" }),
         ]);
 
+      // Log individual response statuses for debugging
+      console.log("API Response Status:", {
+        logs: logsRes.status,
+        projects: projectsRes.status,
+        shots: shotsRes.status,
+        artists: artistsRes.status,
+        tasks: tasksRes.status,
+        dashboard: dashboardRes.status,
+      });
+
       if (
         !logsRes.ok ||
         !projectsRes.ok ||
@@ -140,7 +150,17 @@ export default function TimeLogsManagement() {
         !tasksRes.ok ||
         !dashboardRes.ok
       ) {
-        throw new Error("Failed to load time log management data");
+        const failedEndpoints = [
+          !logsRes.ok && "time-logs",
+          !projectsRes.ok && "projects",
+          !shotsRes.ok && "shots",
+          !artistsRes.ok && "artists",
+          !tasksRes.ok && "shot-tasks",
+          !dashboardRes.ok && "time-logs/dashboard",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        throw new Error(`Failed to load: ${failedEndpoints}`);
       }
 
       const [logsData, projectsData, shotsData, artistsData, tasksData, dashboardData] =

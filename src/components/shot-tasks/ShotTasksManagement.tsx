@@ -100,8 +100,24 @@ export default function ShotTasksManagement() {
         fetch("/api/artists", { cache: "no-store" }),
       ]);
 
+      // Log individual response statuses for debugging
+      console.log("API Response Status:", {
+        tasks: tasksRes.status,
+        projects: projectsRes.status,
+        shots: shotsRes.status,
+        artists: artistsRes.status,
+      });
+
       if (!tasksRes.ok || !projectsRes.ok || !shotsRes.ok || !artistsRes.ok) {
-        throw new Error("Failed to load task management data");
+        const failedEndpoints = [
+          !tasksRes.ok && "shot-tasks",
+          !projectsRes.ok && "projects",
+          !shotsRes.ok && "shots",
+          !artistsRes.ok && "artists",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        throw new Error(`Failed to load: ${failedEndpoints}`);
       }
 
       const [tasksData, projectsData, shotsData, artistsData] = (await Promise.all([
