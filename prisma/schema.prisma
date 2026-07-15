@@ -431,6 +431,19 @@ model Shot {
   @@index([flag])
 }
 
+model TaskTemplate {
+  id        String @id @default(cuid())
+
+  name      String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([name])
+}
+
 model Artist {
   id            String @id @default(cuid())
 

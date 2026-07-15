@@ -178,6 +178,7 @@ export default function ShotsManagementNew() {
   const [shots, setShots] = useState<ShotItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [sequences, setSequences] = useState<SequenceItem[]>([]);
+  const [taskTemplates, setTaskTemplates] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -208,9 +209,10 @@ export default function ShotsManagementNew() {
     setLoading(true);
     setError(null);
     try {
-      const [shotsRes, projectsRes] = await Promise.all([
+      const [shotsRes, projectsRes, templatesRes] = await Promise.all([
         fetch("/api/shots", { cache: "no-store" }),
         fetch("/api/projects?activeOnly=true", { cache: "no-store" }),
+        fetch("/api/task-templates", { cache: "no-store" }),
       ]);
 
       if (shotsRes.ok) {
@@ -220,6 +222,10 @@ export default function ShotsManagementNew() {
       if (projectsRes.ok) {
         const projectsData = await projectsRes.json();
         setProjects(Array.isArray(projectsData) ? projectsData : []);
+      }
+      if (templatesRes.ok) {
+        const templatesData = await templatesRes.json();
+        setTaskTemplates(Array.isArray(templatesData) ? templatesData : []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -483,13 +489,18 @@ export default function ShotsManagementNew() {
 
                 <div>
                   <label className="mb-2 block text-sm text-slate-300">Task Template</label>
-                  <input
-                    type="text"
-                    value={form.taskTemplate}
-                    onChange={(e) => setForm({ ...form, taskTemplate: e.target.value })}
-                    placeholder="Enter template"
+                  <select
+                    value={form.taskTemplate || ""}
+                    onChange={(e) => setForm({ ...form, taskTemplate: e.target.value || undefined })}
                     className="w-full rounded-lg border border-slate-700 bg-[#0B1321] px-3 py-2 text-sm text-slate-100"
-                  />
+                  >
+                    <option value="">Select a template (optional)</option>
+                    {taskTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -497,8 +508,10 @@ export default function ShotsManagementNew() {
               <div>
                 <label className="mb-2 block text-sm text-slate-300">Sequences (Click to tag) *</label>
                 <div className="flex flex-wrap gap-2 rounded-lg border border-slate-700 bg-[#0B1321] p-3">
-                  {sequences.length === 0 ? (
+                  {!form.projectId ? (
                     <p className="text-xs text-slate-500">Select a project first</p>
+                  ) : sequences.length === 0 ? (
+                    <p className="text-xs text-slate-500">No sequences for this project</p>
                   ) : (
                     sequences.map((s) => (
                       <button
