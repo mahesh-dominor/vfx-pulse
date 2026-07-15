@@ -18,10 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(shots);
   } catch (error) {
     console.error("GET /api/shots error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch shots" },
-      { status: 500 }
-    );
+    return NextResponse.json([]);
   }
 }
 
