@@ -272,14 +272,19 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
 
     try {
       // Create project
+      const projectPayload = {
+        ...(projectId && { id: projectId }),
+        ...form,
+        ...(form.deliveryDate && { deliveryDate: toIsoDateTime(form.deliveryDate) }),
+      };
+      console.log("Project payload being sent:", projectPayload);
+      console.log("Delivery date raw:", form.deliveryDate);
+      console.log("Delivery date converted:", form.deliveryDate ? toIsoDateTime(form.deliveryDate) : "not set");
+      
       const projectRes = await fetch("/api/projects", {
         method: projectId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(projectId && { id: projectId }),
-          ...form,
-          ...(form.deliveryDate && { deliveryDate: toIsoDateTime(form.deliveryDate) }),
-        }),
+        body: JSON.stringify(projectPayload),
       });
 
       if (!projectRes.ok) {
