@@ -277,11 +277,23 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
       });
 
       if (!projectRes.ok) {
-        const data = await projectRes.json();
-        throw new Error(data.error || "Failed to save project");
+        let errorMsg = "Failed to save project";
+        try {
+          const data = await projectRes.json();
+          errorMsg = data.error || errorMsg;
+        } catch {
+          errorMsg = `${projectRes.status} ${projectRes.statusText}`;
+        }
+        throw new Error(errorMsg);
       }
 
-      const savedProject = await projectRes.json();
+      let savedProject;
+      try {
+        savedProject = await projectRes.json();
+      } catch (e) {
+        console.error("Failed to parse project response:", await projectRes.text());
+        throw new Error("Invalid response from server while saving project");
+      }
       const projId = projectId || savedProject.id;
 
       // Save episodes
@@ -298,8 +310,14 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
           });
 
           if (!episodeRes.ok) {
-            const data = await episodeRes.json();
-            throw new Error(`Failed to save episode ${episode.code}: ${data.error || episodeRes.statusText}`);
+            let errorMsg = `Failed to save episode ${episode.code}`;
+            try {
+              const data = await episodeRes.json();
+              errorMsg = `Failed to save episode ${episode.code}: ${data.error || episodeRes.statusText}`;
+            } catch {
+              errorMsg = `Failed to save episode ${episode.code}: ${episodeRes.status} ${episodeRes.statusText}`;
+            }
+            throw new Error(errorMsg);
           }
         }
       }
@@ -324,8 +342,14 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
           });
 
           if (!sequenceRes.ok) {
-            const data = await sequenceRes.json();
-            throw new Error(`Failed to save sequence ${sequence.code}: ${data.error || sequenceRes.statusText}`);
+            let errorMsg = `Failed to save sequence ${sequence.code}`;
+            try {
+              const data = await sequenceRes.json();
+              errorMsg = `Failed to save sequence ${sequence.code}: ${data.error || sequenceRes.statusText}`;
+            } catch {
+              errorMsg = `Failed to save sequence ${sequence.code}: ${sequenceRes.status} ${sequenceRes.statusText}`;
+            }
+            throw new Error(errorMsg);
           }
         }
       }
