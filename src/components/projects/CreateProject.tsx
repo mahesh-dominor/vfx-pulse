@@ -278,8 +278,7 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
         body: JSON.stringify({
           ...(projectId && { id: projectId }),
           ...form,
-          deliveryDate: toIsoDateTime(form.deliveryDate),
-          startDate: toIsoDateTime(form.startDate),
+          ...(form.deliveryDate && { deliveryDate: toIsoDateTime(form.deliveryDate) }),
         }),
       });
 
