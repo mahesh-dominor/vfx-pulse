@@ -255,6 +255,11 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
     }
   };
 
+  // Convert date from "YYYY-MM-DD" to ISO datetime format
+  const toIsoDateTime = (value: string) => {
+    return value ? new Date(`${value}T00:00:00.000Z`).toISOString() : undefined;
+  };
+
   const saveProject = async () => {
     if (!form.code || !form.name) {
       setError("Project code and name are required");
@@ -273,6 +278,8 @@ export default function CreateProject({ projectId, onSuccess, producers = [] }: 
         body: JSON.stringify({
           ...(projectId && { id: projectId }),
           ...form,
+          deliveryDate: toIsoDateTime(form.deliveryDate),
+          startDate: toIsoDateTime(form.startDate),
         }),
       });
 
